@@ -6,7 +6,10 @@ import org.apache.avro.specific.SpecificRecord;
 
 /**
  * The Serdes utils class.
+ *
+ * @deprecated Use {@link com.michelin.kstreamplify.serde.SerdeUtils}.
  */
+@Deprecated(forRemoval = true, since = "1.0.3")
 public final class SerdesUtils {
     private SerdesUtils() {
     }
@@ -41,7 +44,7 @@ public final class SerdesUtils {
     private static <T extends SpecificRecord> SpecificAvroSerde<T> getSerdes(
         boolean isSerdeForKey) {
         SpecificAvroSerde<T> serde = new SpecificAvroSerde<>();
-        serde.configure(KafkaStreamsExecutionContext.getSerdesConfig(), isSerdeForKey);
+        serde.configure(KafkaStreamsExecutionContext.getSerdeConfig(), isSerdeForKey);
         return serde;
     }
 }
