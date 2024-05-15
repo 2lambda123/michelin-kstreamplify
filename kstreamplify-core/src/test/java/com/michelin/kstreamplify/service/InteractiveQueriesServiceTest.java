@@ -46,168 +46,183 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class InteractiveQueriesServiceTest {
-    @Mock
-    private KafkaStreamsInitializer kafkaStreamsInitializer;
+  @Mock private KafkaStreamsInitializer kafkaStreamsInitializer;
 
-    @Mock
-    private HttpClient httpClient;
+  @Mock private HttpClient httpClient;
 
-    @Mock
-    private StreamsMetadata streamsMetadata;
+  @Mock private StreamsMetadata streamsMetadata;
 
-    @Mock
-    private KafkaStreams kafkaStreams;
+  @Mock private KafkaStreams kafkaStreams;
 
-    @Mock
-    private StateQueryResult<KeyValueIterator<Object, ValueAndTimestamp<Object>>> stateRangeQueryResult;
+  @Mock
+  private StateQueryResult<KeyValueIterator<Object, ValueAndTimestamp<Object>>>
+      stateRangeQueryResult;
 
-    @Mock
-    private KeyValueIterator<Object, ValueAndTimestamp<Object>> iterator;
+  @Mock private KeyValueIterator<Object, ValueAndTimestamp<Object>> iterator;
 
-    @Mock
-    private StateQueryResult<ValueAndTimestamp<Object>> stateKeyQueryResult;
+  @Mock private StateQueryResult<ValueAndTimestamp<Object>> stateKeyQueryResult;
 
-    @Mock
-    private HttpResponse<String> httpResponse;
+  @Mock private HttpResponse<String> httpResponse;
 
-    @InjectMocks
-    private InteractiveQueriesService interactiveQueriesService;
+  @InjectMocks private InteractiveQueriesService interactiveQueriesService;
 
-    @Test
-    void shouldGetStores() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.metadataForAllStreamsClients()).thenReturn(List.of(streamsMetadata));
-        when(streamsMetadata.stateStoreNames()).thenReturn(Set.of("store1", "store2"));
+  @Test
+  void shouldGetStores() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.metadataForAllStreamsClients())
+        .thenReturn(List.of(streamsMetadata));
+    when(streamsMetadata.stateStoreNames())
+        .thenReturn(Set.of("store1", "store2"));
 
-        List<String> stores = interactiveQueriesService.getStores();
-        
-        assertTrue(stores.contains("store1"));
-        assertTrue(stores.contains("store2"));
-    }
+    List<String> stores = interactiveQueriesService.getStores();
 
-    @Test
-    void shouldGetStoresNull() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.metadataForAllStreamsClients()).thenReturn(null);
+    assertTrue(stores.contains("store1"));
+    assertTrue(stores.contains("store2"));
+  }
 
-        List<String> stores = interactiveQueriesService.getStores();
+  @Test
+  void shouldGetStoresNull() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.metadataForAllStreamsClients()).thenReturn(null);
 
-        assertTrue(stores.isEmpty());
-    }
+    List<String> stores = interactiveQueriesService.getStores();
 
-    @Test
-    void shouldGetStoresEmpty() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.metadataForAllStreamsClients()).thenReturn(Collections.emptyList());
+    assertTrue(stores.isEmpty());
+  }
 
-        List<String> stores = interactiveQueriesService.getStores();
+  @Test
+  void shouldGetStoresEmpty() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.metadataForAllStreamsClients())
+        .thenReturn(Collections.emptyList());
 
-        assertTrue(stores.isEmpty());
-    }
+    List<String> stores = interactiveQueriesService.getStores();
 
-    @Test
-    void shouldGetStreamsMetadataForStore() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(List.of(streamsMetadata));
+    assertTrue(stores.isEmpty());
+  }
 
-        Collection<StreamsMetadata> streamsMetadataResponse = interactiveQueriesService.getStreamsMetadata("store");
+  @Test
+  void shouldGetStreamsMetadataForStore() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any()))
+        .thenReturn(List.of(streamsMetadata));
 
-        assertIterableEquals(List.of(streamsMetadata), streamsMetadataResponse);
-    }
+    Collection<StreamsMetadata> streamsMetadataResponse =
+        interactiveQueriesService.getStreamsMetadata("store");
 
-    @Test
-    void shouldGetAllThrowsUnknownStoreExceptionWhenMetadataNull() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(null);
+    assertIterableEquals(List.of(streamsMetadata), streamsMetadataResponse);
+  }
 
-        assertThrows(UnknownStateStoreException.class, () -> interactiveQueriesService.getAll("store", false, false));
-    }
+  @Test
+  void shouldGetAllThrowsUnknownStoreExceptionWhenMetadataNull() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(null);
 
-    @Test
-    void shouldGetAllThrowsUnknownStoreExceptionWhenMetadataEmpty() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(Collections.emptyList());
+    assertThrows(UnknownStateStoreException.class,
+                 () -> interactiveQueriesService.getAll("store", false, false));
+  }
 
-        assertThrows(UnknownStateStoreException.class, () -> interactiveQueriesService.getAll("store", false, false));
-    }
+  @Test
+  void shouldGetAllThrowsUnknownStoreExceptionWhenMetadataEmpty() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any()))
+        .thenReturn(Collections.emptyList());
 
-    @Test
-    void shouldGetAllCurrentInstance() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(List.of(streamsMetadata));
+    assertThrows(UnknownStateStoreException.class,
+                 () -> interactiveQueriesService.getAll("store", false, false));
+  }
 
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
+  @Test
+  void shouldGetAllCurrentInstance() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any()))
+        .thenReturn(List.of(streamsMetadata));
 
-        when(kafkaStreams.query(ArgumentMatchers.<StateQueryRequest<KeyValueIterator<Object,
-            ValueAndTimestamp<Object>>>>any())).thenReturn(stateRangeQueryResult);
-        when(stateRangeQueryResult.getPartitionResults()).thenReturn(Map.of(0, QueryResult.forResult(iterator)));
-        doCallRealMethod().when(iterator).forEachRemaining(any());
-        when(iterator.hasNext())
-            .thenReturn(true)
-            .thenReturn(false);
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
 
-        when(iterator.next())
-            .thenReturn(KeyValue.pair("key", ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L)));
+    when(kafkaStreams.query(
+             ArgumentMatchers.<StateQueryRequest<
+                 KeyValueIterator<Object, ValueAndTimestamp<Object>>>>any()))
+        .thenReturn(stateRangeQueryResult);
+    when(stateRangeQueryResult.getPartitionResults())
+        .thenReturn(Map.of(0, QueryResult.forResult(iterator)));
+    doCallRealMethod().when(iterator).forEachRemaining(any());
+    when(iterator.hasNext()).thenReturn(true).thenReturn(false);
 
-        List<QueryResponse> responses = interactiveQueriesService.getAll("store", false, false);
+    when(iterator.next())
+        .thenReturn(KeyValue.pair(
+            "key",
+            ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L)));
 
-        assertNull(responses.get(0).getKey());
-        assertEquals(Map.of("firstName", "John", "lastName", "Doe"), responses.get(0).getValue());
-        assertNull(responses.get(0).getTimestamp());
-        assertNull(responses.get(0).getHostInfo());
-        assertNull(responses.get(0).getPositionVectors());
-    }
+    List<QueryResponse> responses =
+        interactiveQueriesService.getAll("store", false, false);
 
-    @Test
-    void shouldGetAllCurrentInstanceIncludeAll() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(List.of(streamsMetadata));
+    assertNull(responses.get(0).getKey());
+    assertEquals(Map.of("firstName", "John", "lastName", "Doe"),
+                 responses.get(0).getValue());
+    assertNull(responses.get(0).getTimestamp());
+    assertNull(responses.get(0).getHostInfo());
+    assertNull(responses.get(0).getPositionVectors());
+  }
 
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
+  @Test
+  void shouldGetAllCurrentInstanceIncludeAll() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any()))
+        .thenReturn(List.of(streamsMetadata));
 
-        when(kafkaStreams.query(ArgumentMatchers.<StateQueryRequest<KeyValueIterator<Object,
-            ValueAndTimestamp<Object>>>>any())).thenReturn(stateRangeQueryResult);
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
 
-        QueryResult<KeyValueIterator<Object, ValueAndTimestamp<Object>>> queryResult = QueryResult.forResult(iterator);
-        queryResult.setPosition(Position.fromMap(Map.of("topic", Map.of(0, 15L))));
-        when(stateRangeQueryResult.getPartitionResults()).thenReturn(Map.of(0, queryResult));
-        doCallRealMethod().when(iterator).forEachRemaining(any());
-        when(iterator.hasNext())
-            .thenReturn(true)
-            .thenReturn(false);
+    when(kafkaStreams.query(
+             ArgumentMatchers.<StateQueryRequest<
+                 KeyValueIterator<Object, ValueAndTimestamp<Object>>>>any()))
+        .thenReturn(stateRangeQueryResult);
 
-        when(iterator.next())
-            .thenReturn(KeyValue.pair("key", ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L)));
+    QueryResult<KeyValueIterator<Object, ValueAndTimestamp<Object>>>
+        queryResult = QueryResult.forResult(iterator);
+    queryResult.setPosition(Position.fromMap(Map.of("topic", Map.of(0, 15L))));
+    when(stateRangeQueryResult.getPartitionResults())
+        .thenReturn(Map.of(0, queryResult));
+    doCallRealMethod().when(iterator).forEachRemaining(any());
+    when(iterator.hasNext()).thenReturn(true).thenReturn(false);
 
-        List<QueryResponse> responses = interactiveQueriesService.getAll("store", true, true);
+    when(iterator.next())
+        .thenReturn(KeyValue.pair(
+            "key",
+            ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L)));
 
-        assertEquals("key", responses.get(0).getKey());
-        assertEquals(Map.of("firstName", "John", "lastName", "Doe"), responses.get(0).getValue());
-        assertEquals(150L, responses.get(0).getTimestamp());
-        assertEquals("localhost", responses.get(0).getHostInfo().host());
-        assertEquals(8080, responses.get(0).getHostInfo().port());
-        assertEquals("topic", responses.get(0).getPositionVectors().get(0).topic());
-        assertEquals(0, responses.get(0).getPositionVectors().get(0).partition());
-        assertEquals(15L, responses.get(0).getPositionVectors().get(0).offset());
-    }
+    List<QueryResponse> responses =
+        interactiveQueriesService.getAll("store", true, true);
 
-    @Test
-    void shouldGetAllOtherInstance() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(List.of(streamsMetadata));
+    assertEquals("key", responses.get(0).getKey());
+    assertEquals(Map.of("firstName", "John", "lastName", "Doe"),
+                 responses.get(0).getValue());
+    assertEquals(150L, responses.get(0).getTimestamp());
+    assertEquals("localhost", responses.get(0).getHostInfo().host());
+    assertEquals(8080, responses.get(0).getHostInfo().port());
+    assertEquals("topic", responses.get(0).getPositionVectors().get(0).topic());
+    assertEquals(0, responses.get(0).getPositionVectors().get(0).partition());
+    assertEquals(15L, responses.get(0).getPositionVectors().get(0).offset());
+  }
 
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
+  @Test
+  void shouldGetAllOtherInstance() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any()))
+        .thenReturn(List.of(streamsMetadata));
 
-        HostInfo anotherHostInfo = new HostInfo("anotherHost", 8080);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(anotherHostInfo);
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
 
-        when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
-            .thenReturn(CompletableFuture.completedFuture(httpResponse));
+    HostInfo anotherHostInfo = new HostInfo("anotherHost", 8080);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(anotherHostInfo);
+
+    when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(CompletableFuture.completedFuture(httpResponse));
         when(httpResponse.body()).thenReturn("""
             [
               {
@@ -225,21 +240,22 @@ class InteractiveQueriesServiceTest {
         assertNull(responses.get(0).getTimestamp());
         assertNull(responses.get(0).getHostInfo());
         assertNull(responses.get(0).getPositionVectors());
-    }
+  }
 
-    @Test
-    void shouldGetAllOtherInstanceIncludeAll() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.streamsMetadataForStore(any())).thenReturn(List.of(streamsMetadata));
+  @Test
+  void shouldGetAllOtherInstanceIncludeAll() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.streamsMetadataForStore(any()))
+        .thenReturn(List.of(streamsMetadata));
 
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(streamsMetadata.hostInfo()).thenReturn(hostInfo);
 
-        HostInfo anotherHostInfo = new HostInfo("anotherHost", 8080);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(anotherHostInfo);
+    HostInfo anotherHostInfo = new HostInfo("anotherHost", 8080);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(anotherHostInfo);
 
-        when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
-            .thenReturn(CompletableFuture.completedFuture(httpResponse));
+    when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(CompletableFuture.completedFuture(httpResponse));
         when(httpResponse.body()).thenReturn("""
             [
               {
@@ -273,60 +289,140 @@ class InteractiveQueriesServiceTest {
         assertEquals("topic", responses.get(0).getPositionVectors().get(0).topic());
         assertEquals(0, responses.get(0).getPositionVectors().get(0).partition());
         assertEquals(15L, responses.get(0).getPositionVectors().get(0).offset());
-    }
+  }
 
-    @Test
-    void shouldGetByKeyThrowsUnknownStoreExceptionWhenMetadataNull() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.queryMetadataForKey(anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
-            .thenReturn(null);
+  @Test
+  void shouldGetByKeyThrowsUnknownStoreExceptionWhenMetadataNull() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.queryMetadataForKey(
+             anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
+        .thenReturn(null);
 
-        assertThrows(UnknownStateStoreException.class, () ->
-            interactiveQueriesService.getByKey("store", "key", new StringSerializer(), false, false));
-    }
+    assertThrows(UnknownStateStoreException.class,
+                 ()
+                     -> interactiveQueriesService.getByKey(
+                         "store", "key", new StringSerializer(), false, false));
+  }
 
-    @Test
-    void shouldGetByKeyCurrentInstance() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.queryMetadataForKey(anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
-            .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8080), Collections.emptySet(), 0));
+  @Test
+  void shouldGetByKeyCurrentInstance() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.queryMetadataForKey(
+             anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
+        .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8080),
+                                         Collections.emptySet(), 0));
 
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
 
-        when(kafkaStreams.query(ArgumentMatchers.<StateQueryRequest<ValueAndTimestamp<Object>>>any()))
-            .thenReturn(stateKeyQueryResult);
-        when(stateKeyQueryResult.getOnlyPartitionResult())
-            .thenReturn(QueryResult.forResult(ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L)));
+    when(kafkaStreams.query(
+             ArgumentMatchers
+                 .<StateQueryRequest<ValueAndTimestamp<Object>>>any()))
+        .thenReturn(stateKeyQueryResult);
+    when(stateKeyQueryResult.getOnlyPartitionResult())
+        .thenReturn(QueryResult.forResult(
+            ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L)));
+
+    QueryResponse response = interactiveQueriesService.getByKey(
+        "store", "key", new StringSerializer(), false, false);
+
+    assertNull(response.getKey());
+    assertEquals(Map.of("firstName", "John", "lastName", "Doe"),
+                 response.getValue());
+    assertNull(response.getTimestamp());
+    assertNull(response.getHostInfo());
+    assertNull(response.getPositionVectors());
+  }
+
+  @Test
+  void shouldGetByKeyCurrentInstanceIncludeAll() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.queryMetadataForKey(
+             anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
+        .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8080),
+                                         Collections.emptySet(), 0));
+
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
+
+    when(kafkaStreams.query(
+             ArgumentMatchers
+                 .<StateQueryRequest<ValueAndTimestamp<Object>>>any()))
+        .thenReturn(stateKeyQueryResult);
+
+    QueryResult<ValueAndTimestamp<Object>> queryResult = QueryResult.forResult(
+        ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L));
+    queryResult.setPosition(Position.fromMap(Map.of("topic", Map.of(0, 15L))));
+
+    when(stateKeyQueryResult.getOnlyPartitionResult()).thenReturn(queryResult);
+
+    QueryResponse response = interactiveQueriesService.getByKey(
+        "store", "key", new StringSerializer(), true, true);
+
+    assertEquals("key", response.getKey());
+    assertEquals(Map.of("firstName", "John", "lastName", "Doe"),
+                 response.getValue());
+    assertEquals(150L, response.getTimestamp());
+    assertEquals("localhost", response.getHostInfo().host());
+    assertEquals(8080, response.getHostInfo().port());
+    assertEquals("topic", response.getPositionVectors().get(0).topic());
+    assertEquals(0, response.getPositionVectors().get(0).partition());
+    assertEquals(15L, response.getPositionVectors().get(0).offset());
+  }
+
+  @Test
+  void shouldGetByKeyOtherInstance() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.queryMetadataForKey(
+             anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
+        .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8085),
+                                         Collections.emptySet(), 0));
+
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
+
+    when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(CompletableFuture.completedFuture(httpResponse));
+        when(httpResponse.body()).thenReturn("""              
+              {
+      "value" : { "firstName" : "John", "lastName" : "Doe" }
+              }
+            """);
 
         QueryResponse response = interactiveQueriesService
-            .getByKey("store", "key", new StringSerializer(), false, false);
+            .getByKey("store", "key", new StringSerializer(), true, true);
 
         assertNull(response.getKey());
         assertEquals(Map.of("firstName", "John", "lastName", "Doe"), response.getValue());
         assertNull(response.getTimestamp());
         assertNull(response.getHostInfo());
         assertNull(response.getPositionVectors());
-    }
+  }
 
-    @Test
-    void shouldGetByKeyCurrentInstanceIncludeAll() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.queryMetadataForKey(anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
-            .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8080), Collections.emptySet(), 0));
+  @Test
+  void shouldGetByKeyOtherInstanceIncludeAll() {
+    when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
+    when(kafkaStreams.queryMetadataForKey(
+             anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
+        .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8085),
+                                         Collections.emptySet(), 0));
 
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
+    HostInfo hostInfo = new HostInfo("localhost", 8080);
+    when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
 
-        when(kafkaStreams.query(ArgumentMatchers.<StateQueryRequest<ValueAndTimestamp<Object>>>any()))
-            .thenReturn(stateKeyQueryResult);
-
-        QueryResult<ValueAndTimestamp<Object>> queryResult = QueryResult
-            .forResult(ValueAndTimestamp.make(new PersonStub("John", "Doe"), 150L));
-        queryResult.setPosition(Position.fromMap(Map.of("topic", Map.of(0, 15L))));
-
-        when(stateKeyQueryResult.getOnlyPartitionResult())
-            .thenReturn(queryResult);
+    when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(CompletableFuture.completedFuture(httpResponse));
+        when(httpResponse.body()).thenReturn("""              
+              {
+      "key" : "key",
+                "value" : {"firstName" : "John", "lastName" : "Doe"},
+                            "timestamp" : 150,
+                            "hostInfo"
+          : {"host" : "localhost", "port" : 8080},
+            "positionVectors"
+          : [{"topic" : "topic", "partition" : 0, "offset" : 15}]
+              }
+            """);
 
         QueryResponse response = interactiveQueriesService
             .getByKey("store", "key", new StringSerializer(), true, true);
@@ -339,83 +435,7 @@ class InteractiveQueriesServiceTest {
         assertEquals("topic", response.getPositionVectors().get(0).topic());
         assertEquals(0, response.getPositionVectors().get(0).partition());
         assertEquals(15L, response.getPositionVectors().get(0).offset());
-    }
+  }
 
-    @Test
-    void shouldGetByKeyOtherInstance() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.queryMetadataForKey(anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
-            .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8085), Collections.emptySet(), 0));
-
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
-
-        when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
-            .thenReturn(CompletableFuture.completedFuture(httpResponse));
-        when(httpResponse.body()).thenReturn("""              
-              {
-                "value": {
-                  "firstName": "John",
-                  "lastName": "Doe"
-                }
-              }
-            """);
-
-        QueryResponse response = interactiveQueriesService
-            .getByKey("store", "key", new StringSerializer(), true, true);
-
-        assertNull(response.getKey());
-        assertEquals(Map.of("firstName", "John", "lastName", "Doe"), response.getValue());
-        assertNull(response.getTimestamp());
-        assertNull(response.getHostInfo());
-        assertNull(response.getPositionVectors());
-    }
-
-    @Test
-    void shouldGetByKeyOtherInstanceIncludeAll() {
-        when(kafkaStreamsInitializer.getKafkaStreams()).thenReturn(kafkaStreams);
-        when(kafkaStreams.queryMetadataForKey(anyString(), any(), ArgumentMatchers.<Serializer<Object>>any()))
-            .thenReturn(new KeyQueryMetadata(new HostInfo("localhost", 8085), Collections.emptySet(), 0));
-
-        HostInfo hostInfo = new HostInfo("localhost", 8080);
-        when(kafkaStreamsInitializer.getHostInfo()).thenReturn(hostInfo);
-
-        when(httpClient.sendAsync(any(), eq(HttpResponse.BodyHandlers.ofString())))
-            .thenReturn(CompletableFuture.completedFuture(httpResponse));
-        when(httpResponse.body()).thenReturn("""              
-              {
-                "key": "key",
-                "value": {
-                  "firstName": "John",
-                  "lastName": "Doe"
-                },
-                "timestamp": 150,
-                "hostInfo": {
-                  "host": "localhost",
-                  "port": 8080
-                },
-                "positionVectors": [
-                  {
-                    "topic": "topic",
-                    "partition": 0,
-                    "offset": 15
-                  }
-                ]
-              }
-            """);
-
-        QueryResponse response = interactiveQueriesService
-            .getByKey("store", "key", new StringSerializer(), true, true);
-
-        assertEquals("key", response.getKey());
-        assertEquals(Map.of("firstName", "John", "lastName", "Doe"), response.getValue());
-        assertEquals(150L, response.getTimestamp());
-        assertEquals("localhost", response.getHostInfo().host());
-        assertEquals(8080, response.getHostInfo().port());
-        assertEquals("topic", response.getPositionVectors().get(0).topic());
-        assertEquals(0, response.getPositionVectors().get(0).partition());
-        assertEquals(15L, response.getPositionVectors().get(0).offset());
-    }
-
-    record PersonStub(String firstName, String lastName) { }
+  record PersonStub(String firstName, String lastName) {}
 }

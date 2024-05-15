@@ -28,90 +28,95 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.specific.SpecificRecordBase;
 
-
 /**
  * The class to convert Json to Avro.
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class JsonToAvroConverter {
-    private static final Gson gson = new GsonBuilder()
-        .setPrettyPrinting()
-        .create();
+  private static final Gson gson =
+      new GsonBuilder().setPrettyPrinting().create();
 
-    /**
-     * Convert a json string to an object.
-     *
-     * @param json the json string
-     * @return the object
-     */
-    public static Object jsonToObject(String json) {
-        if (json == null) {
-            return null;
-        }
-
-        return gson.fromJson(json, Object.class);
+  /**
+   * Convert a json string to an object.
+   *
+   * @param json the json string
+   * @return the object
+   */
+  public static Object jsonToObject(String json) {
+    if (json == null) {
+      return null;
     }
 
-    /**
-     * Convert a file in json to avro.
-     *
-     * @param file   the file in json
-     * @param schema the avro schema to use
-     * @return the record in avro
-     */
-    public static SpecificRecordBase jsonToAvro(String file, Schema schema) {
-        return jsonToAvro(JsonParser.parseString(file).getAsJsonObject(), schema);
-    }
+    return gson.fromJson(json, Object.class);
+  }
 
-    /**
-     * Convert json to avro.
-     *
-     * @param jsonEvent the json record
-     * @param schema    the avro schema to use
-     * @return the record in avro
-     */
-    public static SpecificRecordBase jsonToAvro(JsonObject jsonEvent, Schema schema) {
-        try {
-            SpecificRecordBase message = baseClass(schema.getNamespace(), schema.getName()).getDeclaredConstructor()
-                .newInstance();
-            populateGenericRecordFromJson(jsonEvent, message);
-            return message;
-        } catch (Exception e) {
-            return null;
-        }
-    }
+  /**
+   * Convert a file in json to avro.
+   *
+   * @param file   the file in json
+   * @param schema the avro schema to use
+   * @return the record in avro
+   */
+  public static SpecificRecordBase jsonToAvro(String file, Schema schema) {
+    return jsonToAvro(JsonParser.parseString(file).getAsJsonObject(), schema);
+  }
 
-    /**
-     * Populate avro records from json.
-     *
-     * @param jsonObject json data to provide to the avro record
-     * @param message    the avro record to populate
-     */
-    private static void populateGenericRecordFromJson(JsonObject jsonObject,
-                                                      SpecificRecordBase message) {
-        // Iterate over object attributes
+  /**
+   * Convert json to avro.
+   *
+   * @param jsonEvent the json record
+   * @param schema    the avro schema to use
+   * @return the record in avro
+   */
+  public static SpecificRecordBase jsonToAvro(JsonObject jsonEvent,
+                                              Schema schema) {
+    try {
+      SpecificRecordBase message =
+          baseClass(schema.getNamespace(), schema.getName())
+              .getDeclaredConstructor()
+              .newInstance();
+      populateGenericRecordFromJson(jsonEvent, message);
+      return message;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /**
+   * Populate avro records from json.
+   *
+   * @param jsonObject json data to provide to the avro record
+   * @param message    the avro record to populate
+   */
+  private static void
+  populateGenericRecordFromJson(JsonObject jsonObject,
+                                SpecificRecordBase message) {
+    // Iterate over object attributes
         jsonObject.keySet().forEach(
                 currentKey -> {
-                    try {
-                        var currentValue = jsonObject.get(currentKey);
+      try {
+        var currentValue = jsonObject.get(currentKey);
 
-                        // If this is an object, add to prefix and call method again
-                        if (currentValue instanceof JsonObject currentValueJsonObject) {
-                            Schema currentSchema = message.getSchema().getField(currentKey).schema();
+        // If this is an object, add to prefix and call method again
+        if (currentValue instanceof JsonObject currentValueJsonObject) {
+          Schema currentSchema =
+              message.getSchema().getField(currentKey).schema();
 
-                            // If the current value is a UNION
-                            if (currentSchema.getType().equals(Schema.Type.UNION)) {
-                                // Then research the first NOT NULL sub value
-                                Optional<Schema> notNullSchema = currentSchema.getTypes().stream()
-                                        .filter(s -> !s.getType().equals(Schema.Type.NULL))
-                                        .findAny();
+          // If the current value is a UNION
+          if (currentSchema.getType().equals(Schema.Type.UNION)) {
+            // Then research the first NOT NULL sub value
+            Optional<Schema> notNullSchema =
+                currentSchema.getTypes()
+                    .stream()
+                    .filter(s -> !s.getType().equals(Schema.Type.NULL))
+                    .findAny();
 
-                                if (notNullSchema.isPresent()) {
-                                    currentSchema = notNullSchema.get();
-                                }
-                            }
+            if (notNullSchema.isPresent()) {
+              currentSchema = notNullSchema.get();
+            }
+          }
 
-                            switch (currentSchema.getType()) {
+          switch (currentSchema.getType()) {
                                 case RECORD -> {
                                     SpecificRecordBase currentRecord =
                                             baseClass(message.getSchema().getNamespace(),
@@ -126,87 +131,100 @@ public class JsonToAvroConverter {
                                     if (!currentSchema.getValueType().getType()
                                             .equals(Schema.Type.RECORD)) {
                                         for (String key : currentValueJsonObject.keySet()) {
-                                            Object value = populateFieldWithCorrespondingType(
-                                                    currentValueJsonObject.get(key),
-                                                    currentSchema.getValueType().getType());
-                                            map.put(key, value);
-                                        }
-                                    } else {
-                                        for (String key : currentValueJsonObject.keySet()) {
-                                            SpecificRecordBase mapValueRecord =
-                                                    baseClass(message.getSchema().getNamespace(),
-                                                            currentSchema.getValueType()
-                                                                    .getName()).getDeclaredConstructor()
-                                                            .newInstance();
-                                            populateGenericRecordFromJson(
-                                                    currentValueJsonObject.get(key).getAsJsonObject(),
-                                                    mapValueRecord);
-                                            map.put(key, mapValueRecord);
-                                        }
-                                    }
-                                    message.put(currentKey, map);
+                                    Object value =
+                                        populateFieldWithCorrespondingType(
+                                            currentValueJsonObject.get(key),
+                                            currentSchema.getValueType()
+                                                .getType());
+                                    map.put(key, value);
+                                  }
                                 }
-                                default -> message.put(currentKey,
-                                        populateFieldWithCorrespondingType(currentValue,
-                                                currentSchema.getType()));
-                            }
+                                else {
+                                  for (String key :
+                                       currentValueJsonObject.keySet()) {
+                                    SpecificRecordBase mapValueRecord =
+                                        baseClass(
+                                            message.getSchema().getNamespace(),
+                                            currentSchema.getValueType()
+                                                .getName())
+                                            .getDeclaredConstructor()
+                                            .newInstance();
+                                    populateGenericRecordFromJson(
+                                        currentValueJsonObject.get(key)
+                                            .getAsJsonObject(),
+                                        mapValueRecord);
+                                    map.put(key, mapValueRecord);
+                                  }
+                                }
+                                message.put(currentKey, map);
+        }
+        default
+            -> message.put(currentKey,
+                           populateFieldWithCorrespondingType(
+                               currentValue, currentSchema.getType()));
+      }
                         } else if (currentValue instanceof JsonArray jsonArray) {
-                            // If this is an Array, call method for each one of them
-                            var arraySchema = message.getSchema().getField(currentKey).schema();
-                            Schema arrayType = arraySchema.getType() != Schema.Type.UNION
-                                    ? arraySchema :
-                                    arraySchema.getTypes().stream()
-                                            .filter(s -> s.getType() != Schema.Type.NULL)
-                                            .findFirst().get();
-                            Schema elementType = arrayType.getElementType();
+      // If this is an Array, call method for each one of them
+      var arraySchema = message.getSchema().getField(currentKey).schema();
+      Schema arrayType = arraySchema.getType() != Schema.Type.UNION
+                             ? arraySchema
+                             : arraySchema.getTypes()
+                                   .stream()
+                                   .filter(s -> s.getType() != Schema.Type.NULL)
+                                   .findFirst()
+                                   .get();
+      Schema elementType = arrayType.getElementType();
 
-                            if (elementType != null
-                                    && Schema.Type.RECORD.equals(elementType.getType())) {
-                                ArrayList<GenericRecord> recordArray = new ArrayList<>();
-                                for (int i = 0; i < jsonArray.size(); i++) {
-                                    SpecificRecordBase currentRecord =
-                                            baseClass(message.getSchema().getNamespace(),
-                                                    elementType.getName()).getDeclaredConstructor()
-                                                    .newInstance();
-                                    populateGenericRecordFromJson((JsonObject) jsonArray.get(i),
-                                            currentRecord);
-                                    recordArray.add(currentRecord);
-                                }
-                                message.put(currentKey, recordArray);
-                            } else {
-                                ArrayList<Object> objArray = new ArrayList<>();
-                                for (int i = 0; i < ((JsonArray) currentValue).size(); i++) {
-                                    Object obj = populateFieldWithCorrespondingType(
-                                            (((JsonArray) currentValue).get(i)), elementType.getType());
-                                    objArray.add(obj);
-                                }
-                                message.put(currentKey, objArray);
-                            }
+      if (elementType != null &&
+          Schema.Type.RECORD.equals(elementType.getType())) {
+        ArrayList<GenericRecord> recordArray = new ArrayList<>();
+        for (int i = 0; i < jsonArray.size(); i++) {
+          SpecificRecordBase currentRecord =
+              baseClass(message.getSchema().getNamespace(),
+                        elementType.getName())
+                  .getDeclaredConstructor()
+                  .newInstance();
+          populateGenericRecordFromJson((JsonObject)jsonArray.get(i),
+                                        currentRecord);
+          recordArray.add(currentRecord);
+        }
+        message.put(currentKey, recordArray);
+      } else {
+        ArrayList<Object> objArray = new ArrayList<>();
+        for (int i = 0; i < ((JsonArray)currentValue).size(); i++) {
+          Object obj = populateFieldWithCorrespondingType(
+              (((JsonArray)currentValue).get(i)), elementType.getType());
+          objArray.add(obj);
+        }
+        message.put(currentKey, objArray);
+      }
                         } else {
-                            // Otherwise, put the value in the record after parsing according to its
-                            // corresponding schema type
-                            if (!jsonObject.get(currentKey).isJsonNull()) {
-                                populateFieldInRecordWithCorrespondingType(jsonObject, currentKey,
-                                        message);
-                            }
+      // Otherwise, put the value in the record after parsing according to its
+      // corresponding schema type
+      if (!jsonObject.get(currentKey).isJsonNull()) {
+        populateFieldInRecordWithCorrespondingType(jsonObject, currentKey,
+                                                   message);
+      }
                         }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }
+  }
+  catch (Exception e) {
+    throw new RuntimeException(e);
+  }
+}
         );
-    }
+        }
 
-    /**
-     * Populate field with corresponding type.
-     *
-     * @param jsonElement the json element to convert
-     * @param type        the type of the element
-     * @return the element converted with the corresponding type
-     */
-    private static Object populateFieldWithCorrespondingType(JsonElement jsonElement,
-                                                             Schema.Type type) {
-        return switch (type) {
+        /**
+         * Populate field with corresponding type.
+         *
+         * @param jsonElement the json element to convert
+         * @param type        the type of the element
+         * @return the element converted with the corresponding type
+         */
+        private static Object
+        populateFieldWithCorrespondingType(JsonElement jsonElement,
+                                           Schema.Type type) {
+          return switch (type) {
             case INT -> jsonElement.getAsInt();
             case LONG -> jsonElement.getAsLong();
             case FLOAT -> jsonElement.getAsFloat();
@@ -229,14 +247,14 @@ public class JsonToAvroConverter {
         Schema fieldSchema = result.getSchema().getField(fieldName).schema();
         Optional<Schema> optionalFieldType =
                 fieldSchema.getType() != Schema.Type.UNION ? Optional.of(fieldSchema) :
-                        fieldSchema.getTypes()
-                                .stream()
-                                .filter(s -> s.getType() != Schema.Type.NULL)
-                                .findFirst();
+              fieldSchema.getTypes()
+                  .stream()
+                  .filter(s -> s.getType() != Schema.Type.NULL)
+                  .findFirst();
 
-        if (optionalFieldType.isPresent()) {
-            Schema fieldType = optionalFieldType.get();
-            switch (fieldType.getType()) {
+              if (optionalFieldType.isPresent()) {
+                Schema fieldType = optionalFieldType.get();
+                switch (fieldType.getType()) {
                 case INT -> {
                     if (fieldType.getLogicalType() != null
                             && fieldType.getLogicalType().getName().equals("date")) {

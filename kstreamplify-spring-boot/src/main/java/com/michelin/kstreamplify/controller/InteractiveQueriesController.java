@@ -25,103 +25,119 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/store")
 @ConditionalOnBean(KafkaStreamsStarter.class)
 public class InteractiveQueriesController {
-    private static final String STREAMS_NOT_STARTED = "Cannot process request while instance is in %s state";
+  private static final String STREAMS_NOT_STARTED =
+      "Cannot process request while instance is in %s state";
 
-    /**
-     * The store service.
-     */
-    @Autowired
-    private InteractiveQueriesService interactiveQueriesService;
+  /**
+   * The store service.
+   */
+  @Autowired private InteractiveQueriesService interactiveQueriesService;
 
-    /**
-     * Get the stores.
-     *
-     * @return The stores
-     */
-    @GetMapping
-    public ResponseEntity<List<String>> getStores() {
-        if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
-            KafkaStreams.State state = interactiveQueriesService.getKafkaStreamsInitializer().getKafkaStreams().state();
-            throw new StreamsNotStartedException(String.format(STREAMS_NOT_STARTED, state));
-        }
-
-        return ResponseEntity
-            .ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(interactiveQueriesService.getStores());
+  /**
+   * Get the stores.
+   *
+   * @return The stores
+   */
+  @GetMapping
+  public ResponseEntity<List<String>> getStores() {
+    if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
+      KafkaStreams.State state =
+          interactiveQueriesService.getKafkaStreamsInitializer()
+              .getKafkaStreams()
+              .state();
+      throw new StreamsNotStartedException(
+          String.format(STREAMS_NOT_STARTED, state));
     }
 
-    /**
-     * Get the hosts of the store.
-     *
-     * @param store The store
-     * @return The hosts
-     */
-    @GetMapping(value = "/{store}/info")
-    public ResponseEntity<List<HostInfoResponse>> getHostsForStore(@PathVariable("store") final String store) {
-        if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
-            KafkaStreams.State state = interactiveQueriesService.getKafkaStreamsInitializer().getKafkaStreams().state();
-            throw new StreamsNotStartedException(String.format(STREAMS_NOT_STARTED, state));
-        }
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(interactiveQueriesService.getStores());
+  }
 
-        return ResponseEntity
-            .ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(interactiveQueriesService.getStreamsMetadata(store)
-                .stream()
-                .map(streamsMetadata -> new HostInfoResponse(streamsMetadata.host(), streamsMetadata.port()))
-                .toList());
+  /**
+   * Get the hosts of the store.
+   *
+   * @param store The store
+   * @return The hosts
+   */
+  @GetMapping(value = "/{store}/info")
+  public ResponseEntity<List<HostInfoResponse>>
+  getHostsForStore(@PathVariable("store") final String store) {
+    if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
+      KafkaStreams.State state =
+          interactiveQueriesService.getKafkaStreamsInitializer()
+              .getKafkaStreams()
+              .state();
+      throw new StreamsNotStartedException(
+          String.format(STREAMS_NOT_STARTED, state));
     }
 
-    /**
-     * Get all the values from the store.
-     *
-     * @param store The store
-     * @param includeKey Include the key in the response
-     * @param includeMetadata Include the metadata in the response
-     * @return The values
-     */
-    @GetMapping(value = "/{store}")
-    public ResponseEntity<List<QueryResponse>> getAll(@PathVariable("store") String store,
-                                                      @RequestParam(value = "includeKey", required = false)
-                                                      boolean includeKey,
-                                                      @RequestParam(value = "includeMetadata", required = false)
-                                                      boolean includeMetadata) {
-        if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
-            KafkaStreams.State state = interactiveQueriesService.getKafkaStreamsInitializer().getKafkaStreams().state();
-            throw new StreamsNotStartedException(String.format(STREAMS_NOT_STARTED, state));
-        }
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(interactiveQueriesService.getStreamsMetadata(store)
+                  .stream()
+                  .map(streamsMetadata
+                       -> new HostInfoResponse(streamsMetadata.host(),
+                                               streamsMetadata.port()))
+                  .toList());
+  }
 
-        return ResponseEntity
-            .ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(interactiveQueriesService.getAll(store, includeKey, includeMetadata));
+  /**
+   * Get all the values from the store.
+   *
+   * @param store The store
+   * @param includeKey Include the key in the response
+   * @param includeMetadata Include the metadata in the response
+   * @return The values
+   */
+  @GetMapping(value = "/{store}")
+  public ResponseEntity<List<QueryResponse>> getAll(
+      @PathVariable("store") String store,
+      @RequestParam(value = "includeKey", required = false) boolean includeKey,
+      @RequestParam(value = "includeMetadata",
+                    required = false) boolean includeMetadata) {
+    if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
+      KafkaStreams.State state =
+          interactiveQueriesService.getKafkaStreamsInitializer()
+              .getKafkaStreams()
+              .state();
+      throw new StreamsNotStartedException(
+          String.format(STREAMS_NOT_STARTED, state));
     }
 
-    /**
-     * Get the key-value by key from the store.
-     *
-     * @param store The store
-     * @param key The key
-     * @param includeKey Include the key in the response
-     * @param includeMetadata Include the metadata in the response
-     * @return The value
-     */
-    @GetMapping("/{store}/{key}")
-    public ResponseEntity<QueryResponse> getByKey(@PathVariable("store") String store,
-                                                  @PathVariable("key") String key,
-                                                  @RequestParam(value = "includeKey", required = false)
-                                                  boolean includeKey,
-                                                  @RequestParam(value = "includeMetadata", required = false)
-                                                  boolean includeMetadata) {
-        if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
-            KafkaStreams.State state = interactiveQueriesService.getKafkaStreamsInitializer().getKafkaStreams().state();
-            throw new StreamsNotStartedException(String.format(STREAMS_NOT_STARTED, state));
-        }
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(interactiveQueriesService.getAll(store, includeKey,
+                                               includeMetadata));
+  }
 
-        return ResponseEntity
-            .ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(interactiveQueriesService.getByKey(store, key, new StringSerializer(), includeKey, includeMetadata));
+  /**
+   * Get the key-value by key from the store.
+   *
+   * @param store The store
+   * @param key The key
+   * @param includeKey Include the key in the response
+   * @param includeMetadata Include the metadata in the response
+   * @return The value
+   */
+  @GetMapping("/{store}/{key}")
+  public ResponseEntity<QueryResponse> getByKey(
+      @PathVariable("store") String store, @PathVariable("key") String key,
+      @RequestParam(value = "includeKey", required = false) boolean includeKey,
+      @RequestParam(value = "includeMetadata",
+                    required = false) boolean includeMetadata) {
+    if (interactiveQueriesService.getKafkaStreamsInitializer().isNotRunning()) {
+      KafkaStreams.State state =
+          interactiveQueriesService.getKafkaStreamsInitializer()
+              .getKafkaStreams()
+              .state();
+      throw new StreamsNotStartedException(
+          String.format(STREAMS_NOT_STARTED, state));
     }
+
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(interactiveQueriesService.getByKey(
+            store, key, new StringSerializer(), includeKey, includeMetadata));
+  }
 }

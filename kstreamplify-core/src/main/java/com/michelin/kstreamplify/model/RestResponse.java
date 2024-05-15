@@ -10,4 +10,4 @@ import lombok.Builder;
  * @param <T> The body type
  */
 @Builder
-public record RestResponse<T>(int status, T body) { }
+public record RestResponse<T>(int status, T body) {}

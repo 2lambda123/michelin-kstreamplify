@@ -34,75 +34,80 @@ import org.testcontainers.utility.DockerImageName;
 @Slf4j
 @Testcontainers
 @SpringBootTest(webEnvironment = DEFINED_PORT)
-class SpringBootKafkaStreamsInitializerIntegrationTest extends KafkaIntegrationTest {
-    @Container
-    static KafkaContainer broker = new KafkaContainer(DockerImageName
-        .parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
-        .withNetwork(NETWORK)
-        .withNetworkAliases("broker")
-        .withKraft();
+class SpringBootKafkaStreamsInitializerIntegrationTest
+    extends KafkaIntegrationTest {
+  @Container
+  static KafkaContainer broker =
+      new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:" +
+                                               CONFLUENT_PLATFORM_VERSION))
+          .withNetwork(NETWORK)
+          .withNetworkAliases("broker")
+          .withKraft();
 
-    @DynamicPropertySource
-    static void kafkaProperties(DynamicPropertyRegistry registry) {
-        registry.add("kafka.properties." + BOOTSTRAP_SERVERS_CONFIG,
-            broker::getBootstrapServers);
-    }
+  @DynamicPropertySource
+  static void kafkaProperties(DynamicPropertyRegistry registry) {
+    registry.add("kafka.properties." + BOOTSTRAP_SERVERS_CONFIG,
+                 broker::getBootstrapServers);
+  }
 
-    @Autowired
-    private MeterRegistry registry;
+  @Autowired private MeterRegistry registry;
 
-    @BeforeAll
-    static void globalSetUp() {
-        createTopics(broker.getBootstrapServers(),
-            "INPUT_TOPIC", "OUTPUT_TOPIC");
-    }
+  @BeforeAll
+  static void globalSetUp() {
+    createTopics(broker.getBootstrapServers(), "INPUT_TOPIC", "OUTPUT_TOPIC");
+  }
 
-    @BeforeEach
-    void setUp() throws InterruptedException {
-        waitingForKafkaStreamsToStart();
-    }
+  @BeforeEach
+  void setUp() throws InterruptedException {
+    waitingForKafkaStreamsToStart();
+  }
 
-    @Test
-    void shouldInitAndRun() {
-        assertEquals(KafkaStreams.State.RUNNING, initializer.getKafkaStreams().state());
+  @Test
+  void shouldInitAndRun() {
+    assertEquals(KafkaStreams.State.RUNNING,
+                 initializer.getKafkaStreams().state());
 
-        List<StreamsMetadata> streamsMetadata =
-            new ArrayList<>(initializer.getKafkaStreams().metadataForAllStreamsClients());
+    List<StreamsMetadata> streamsMetadata = new ArrayList<>(
+        initializer.getKafkaStreams().metadataForAllStreamsClients());
 
-        // Assert Kafka Streams initialization
-        assertEquals("localhost", streamsMetadata.get(0).hostInfo().host());
-        assertEquals(8085, streamsMetadata.get(0).hostInfo().port());
-        assertTrue(streamsMetadata.get(0).stateStoreNames().isEmpty());
+    // Assert Kafka Streams initialization
+    assertEquals("localhost", streamsMetadata.get(0).hostInfo().host());
+    assertEquals(8085, streamsMetadata.get(0).hostInfo().port());
+    assertTrue(streamsMetadata.get(0).stateStoreNames().isEmpty());
 
-        List<TopicPartition> topicPartitions = streamsMetadata.get(0).topicPartitions().stream().toList();
+    List<TopicPartition> topicPartitions =
+        streamsMetadata.get(0).topicPartitions().stream().toList();
 
-        assertEquals("INPUT_TOPIC", topicPartitions.get(0).topic());
-        assertEquals(0, topicPartitions.get(0).partition());
+    assertEquals("INPUT_TOPIC", topicPartitions.get(0).topic());
+    assertEquals(0, topicPartitions.get(0).partition());
 
-        assertEquals("DLQ_TOPIC", KafkaStreamsExecutionContext.getDlqTopicName());
-        assertEquals("org.apache.kafka.common.serialization.Serdes$StringSerde",
-            KafkaStreamsExecutionContext.getSerdeConfig().get("default.key.serde"));
-        assertEquals("org.apache.kafka.common.serialization.Serdes$StringSerde",
-            KafkaStreamsExecutionContext.getSerdeConfig().get("default.value.serde"));
+    assertEquals("DLQ_TOPIC", KafkaStreamsExecutionContext.getDlqTopicName());
+    assertEquals(
+        "org.apache.kafka.common.serialization.Serdes$StringSerde",
+        KafkaStreamsExecutionContext.getSerdeConfig().get("default.key.serde"));
+    assertEquals("org.apache.kafka.common.serialization.Serdes$StringSerde",
+                 KafkaStreamsExecutionContext.getSerdeConfig().get(
+                     "default.value.serde"));
 
-        assertEquals("localhost:8085",
-            KafkaStreamsExecutionContext.getProperties().get("application.server"));
+    assertEquals(
+        "localhost:8085",
+        KafkaStreamsExecutionContext.getProperties().get("application.server"));
 
-        // Assert HTTP probes
-        ResponseEntity<Void> responseReady = restTemplate
-            .getForEntity("http://localhost:8085/ready", Void.class);
+    // Assert HTTP probes
+    ResponseEntity<Void> responseReady =
+        restTemplate.getForEntity("http://localhost:8085/ready", Void.class);
 
-        assertEquals(200, responseReady.getStatusCode().value());
+    assertEquals(200, responseReady.getStatusCode().value());
 
-        ResponseEntity<Void> responseLiveness = restTemplate
-            .getForEntity("http://localhost:8085/liveness", Void.class);
+    ResponseEntity<Void> responseLiveness =
+        restTemplate.getForEntity("http://localhost:8085/liveness", Void.class);
 
-        assertEquals(200, responseLiveness.getStatusCode().value());
+    assertEquals(200, responseLiveness.getStatusCode().value());
 
-        ResponseEntity<String> responseTopology = restTemplate
-            .getForEntity("http://localhost:8085/topology", String.class);
+    ResponseEntity<String> responseTopology = restTemplate.getForEntity(
+        "http://localhost:8085/topology", String.class);
 
-        assertEquals(200, responseTopology.getStatusCode().value());
+    assertEquals(200, responseTopology.getStatusCode().value());
         assertEquals("""
             Topologies:
                Sub-topology: 0
@@ -112,58 +117,62 @@ class SpringBootKafkaStreamsInitializerIntegrationTest extends KafkaIntegrationT
                   <-- KSTREAM-SOURCE-0000000000
 
             """, responseTopology.getBody());
-    }
+  }
 
-    @Test
-    void shouldRegisterKafkaMetrics() {
-        // Kafka Streams metrics are registered
-        assertFalse(registry.getMeters()
+  @Test
+  void shouldRegisterKafkaMetrics() {
+    // Kafka Streams metrics are registered
+    assertFalse(
+        registry.getMeters()
             .stream()
-            .filter(metric -> metric.getId().getName().startsWith("kafka.stream"))
+            .filter(
+                metric -> metric.getId().getName().startsWith("kafka.stream"))
             .toList()
             .isEmpty());
 
-        // Kafka producer metrics are registered
-        assertFalse(registry.getMeters()
+    // Kafka producer metrics are registered
+    assertFalse(
+        registry.getMeters()
             .stream()
-            .filter(metric -> metric.getId().getName().startsWith("kafka.producer"))
+            .filter(
+                metric -> metric.getId().getName().startsWith("kafka.producer"))
             .toList()
             .isEmpty());
 
-        // Kafka consumer metrics are registered
-        assertFalse(registry.getMeters()
+    // Kafka consumer metrics are registered
+    assertFalse(
+        registry.getMeters()
             .stream()
-            .filter(metric -> metric.getId().getName().startsWith("kafka.consumer"))
+            .filter(
+                metric -> metric.getId().getName().startsWith("kafka.consumer"))
             .toList()
             .isEmpty());
+  }
+
+  /**
+   * Kafka Streams starter implementation for integration tests.
+   * The topology simply forwards messages from inputTopic to outputTopic.
+   */
+  @Slf4j
+  @SpringBootApplication
+  static class KafkaStreamsStarterStub extends KafkaStreamsStarter {
+    public static void main(String[] args) {
+      SpringApplication.run(KafkaStreamsStarterStub.class, args);
     }
 
-    /**
-     * Kafka Streams starter implementation for integration tests.
-     * The topology simply forwards messages from inputTopic to outputTopic.
-     */
-    @Slf4j
-    @SpringBootApplication
-    static class KafkaStreamsStarterStub extends KafkaStreamsStarter {
-        public static void main(String[] args) {
-            SpringApplication.run(KafkaStreamsStarterStub.class, args);
-        }
-
-        @Override
-        public void topology(StreamsBuilder streamsBuilder) {
-            streamsBuilder
-                .stream("INPUT_TOPIC")
-                .to("OUTPUT_TOPIC");
-        }
-
-        @Override
-        public String dlqTopic() {
-            return "DLQ_TOPIC";
-        }
-
-        @Override
-        public void onStart(KafkaStreams kafkaStreams) {
-            log.info("Starting Kafka Streams from integration tests!");
-        }
+    @Override
+    public void topology(StreamsBuilder streamsBuilder) {
+      streamsBuilder.stream("INPUT_TOPIC").to("OUTPUT_TOPIC");
     }
+
+    @Override
+    public String dlqTopic() {
+      return "DLQ_TOPIC";
+    }
+
+    @Override
+    public void onStart(KafkaStreams kafkaStreams) {
+      log.info("Starting Kafka Streams from integration tests!");
+    }
+  }
 }

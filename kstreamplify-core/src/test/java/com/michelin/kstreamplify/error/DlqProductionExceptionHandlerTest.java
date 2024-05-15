@@ -28,79 +28,89 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class DlqProductionExceptionHandlerTest {
-    @Mock
-    private ProducerRecord<byte[], byte[]> record;
+  @Mock private ProducerRecord<byte[], byte[]> record;
 
-    private Producer<byte[], KafkaError> producer;
+  private Producer<byte[], KafkaError> producer;
 
-    private DlqProductionExceptionHandler handler;
+  private DlqProductionExceptionHandler handler;
 
-    @BeforeEach
-    void setUp() {
-        Serializer<KafkaError> serializer = (Serializer) new KafkaAvroSerializer();
-        serializer.configure(Map.of(KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG, "mock://"), false);
-        producer = new MockProducer<>(true, new ByteArraySerializer(), serializer);
+  @BeforeEach
+  void setUp() {
+    Serializer<KafkaError> serializer = (Serializer) new KafkaAvroSerializer();
+    serializer.configure(
+        Map.of(KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG, "mock://"),
+        false);
+    producer = new MockProducer<>(true, new ByteArraySerializer(), serializer);
 
-        KafkaStreamsExecutionContext.setDlqTopicName(null);
-    }
+    KafkaStreamsExecutionContext.setDlqTopicName(null);
+  }
 
-    @Test
-    void shouldReturnFailIfNoDlq() {
-        handler = new DlqProductionExceptionHandler(producer);
+  @Test
+  void shouldReturnFailIfNoDlq() {
+    handler = new DlqProductionExceptionHandler(producer);
 
-        ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
-            handler.handle(record, new RuntimeException("Exception..."));
+    ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
+        handler.handle(record, new RuntimeException("Exception..."));
 
-        assertEquals(ProductionExceptionHandler.ProductionExceptionHandlerResponse.FAIL, response);
-    }
+    assertEquals(
+        ProductionExceptionHandler.ProductionExceptionHandlerResponse.FAIL,
+        response);
+  }
 
-    @Test
-    void shouldReturnContinueOnExceptionDuringHandle() {
-        handler = new DlqProductionExceptionHandler(producer);
-        KafkaStreamsExecutionContext.setDlqTopicName("DLQ_TOPIC");
-        ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
-            handler.handle(record, new KafkaException("Exception..."));
+  @Test
+  void shouldReturnContinueOnExceptionDuringHandle() {
+    handler = new DlqProductionExceptionHandler(producer);
+    KafkaStreamsExecutionContext.setDlqTopicName("DLQ_TOPIC");
+    ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
+        handler.handle(record, new KafkaException("Exception..."));
 
-        assertEquals(ProductionExceptionHandler.ProductionExceptionHandlerResponse.CONTINUE, response);
-    }
+    assertEquals(
+        ProductionExceptionHandler.ProductionExceptionHandlerResponse.CONTINUE,
+        response);
+  }
 
-    @Test
-    void shouldReturnContinueOnKafkaException() {
-        handler = new DlqProductionExceptionHandler(producer);
-        KafkaStreamsExecutionContext.setDlqTopicName("DLQ_TOPIC");
+  @Test
+  void shouldReturnContinueOnKafkaException() {
+    handler = new DlqProductionExceptionHandler(producer);
+    KafkaStreamsExecutionContext.setDlqTopicName("DLQ_TOPIC");
 
-        when(record.key()).thenReturn("key".getBytes(StandardCharsets.UTF_8));
-        when(record.value()).thenReturn("value".getBytes(StandardCharsets.UTF_8));
-        when(record.topic()).thenReturn("topic");
+    when(record.key()).thenReturn("key".getBytes(StandardCharsets.UTF_8));
+    when(record.value()).thenReturn("value".getBytes(StandardCharsets.UTF_8));
+    when(record.topic()).thenReturn("topic");
 
-        ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
-            handler.handle(record, new KafkaException("Exception..."));
+    ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
+        handler.handle(record, new KafkaException("Exception..."));
 
-        assertEquals(ProductionExceptionHandler.ProductionExceptionHandlerResponse.CONTINUE, response);
-    }
+    assertEquals(
+        ProductionExceptionHandler.ProductionExceptionHandlerResponse.CONTINUE,
+        response);
+  }
 
-    @Test
-    void shouldReturnFailOnRetriableException() {
-        handler = new DlqProductionExceptionHandler(producer);
-        KafkaStreamsExecutionContext.setDlqTopicName("DLQ_TOPIC");
+  @Test
+  void shouldReturnFailOnRetriableException() {
+    handler = new DlqProductionExceptionHandler(producer);
+    KafkaStreamsExecutionContext.setDlqTopicName("DLQ_TOPIC");
 
-        ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
-            handler.handle(record, new RetriableCommitFailedException("Exception..."));
+    ProductionExceptionHandler.ProductionExceptionHandlerResponse response =
+        handler.handle(record,
+                       new RetriableCommitFailedException("Exception..."));
 
-        assertEquals(ProductionExceptionHandler.ProductionExceptionHandlerResponse.FAIL, response);
-    }
+    assertEquals(
+        ProductionExceptionHandler.ProductionExceptionHandlerResponse.FAIL,
+        response);
+  }
 
-    @Test
-    void shouldConfigure() {
-        Map<String, Object> configs = new HashMap<>();
-        configs.put("bootstrap.servers", "localhost:9092");
-        configs.put("schema.registry.url", "localhost:8080");
-        configs.put("acks", "all");
+  @Test
+  void shouldConfigure() {
+    Map<String, Object> configs = new HashMap<>();
+    configs.put("bootstrap.servers", "localhost:9092");
+    configs.put("schema.registry.url", "localhost:8080");
+    configs.put("acks", "all");
 
-        handler = new DlqProductionExceptionHandler(null);
-        handler.configure(configs);
+    handler = new DlqProductionExceptionHandler(null);
+    handler.configure(configs);
 
-        assertTrue(DlqExceptionHandler.getProducer() instanceof KafkaProducer<byte[], KafkaError>);
-    }
+    assertTrue(DlqExceptionHandler.getProducer() instanceof
+               KafkaProducer<byte[], KafkaError>);
+  }
 }
-

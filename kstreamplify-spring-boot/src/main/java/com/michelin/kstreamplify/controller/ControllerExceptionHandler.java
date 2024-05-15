@@ -16,45 +16,43 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ControllerExceptionHandler {
 
-    /**
-     * Handle the unknown state store exception.
-     *
-     * @param e The exception
-     * @return The response entity
-     */
-    @ExceptionHandler(UnknownStateStoreException.class)
-    public ResponseEntity<String> handleUnknownStateStoreException(UnknownStateStoreException e) {
-        log.error(e.getMessage(), e);
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(e.getMessage());
-    }
+  /**
+   * Handle the unknown state store exception.
+   *
+   * @param e The exception
+   * @return The response entity
+   */
+  @ExceptionHandler(UnknownStateStoreException.class)
+  public ResponseEntity<String>
+  handleUnknownStateStoreException(UnknownStateStoreException e) {
+    log.error(e.getMessage(), e);
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+  }
 
-    /**
-     * Handle the stream not started exception.
-     *
-     * @param e The exception
-     * @return The response entity
-     */
-    @ExceptionHandler(StreamsNotStartedException.class)
-    public ResponseEntity<String> handleStreamsNotStartedException(StreamsNotStartedException e) {
-        log.error(e.getMessage(), e);
-        return ResponseEntity
-            .status(HttpStatus.SERVICE_UNAVAILABLE)
-            .body(e.getMessage());
-    }
+  /**
+   * Handle the stream not started exception.
+   *
+   * @param e The exception
+   * @return The response entity
+   */
+  @ExceptionHandler(StreamsNotStartedException.class)
+  public ResponseEntity<String>
+  handleStreamsNotStartedException(StreamsNotStartedException e) {
+    log.error(e.getMessage(), e);
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .body(e.getMessage());
+  }
 
-    /**
-     * Handle the unknown key exception.
-     *
-     * @param e The exception
-     * @return The response entity
-     */
-    @ExceptionHandler(UnknownKeyException.class)
-    public ResponseEntity<String> handleUnknownKeyException(UnknownKeyException e) {
-        log.error(e.getMessage(), e);
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(e.getMessage());
-    }
+  /**
+   * Handle the unknown key exception.
+   *
+   * @param e The exception
+   * @return The response entity
+   */
+  @ExceptionHandler(UnknownKeyException.class)
+  public ResponseEntity<String>
+  handleUnknownKeyException(UnknownKeyException e) {
+    log.error(e.getMessage(), e);
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+  }
 }

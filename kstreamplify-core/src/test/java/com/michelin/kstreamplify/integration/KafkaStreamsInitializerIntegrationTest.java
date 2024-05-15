@@ -26,76 +26,87 @@ import org.testcontainers.utility.DockerImageName;
 @Slf4j
 @Testcontainers
 class KafkaStreamsInitializerIntegrationTest extends KafkaIntegrationTest {
-    @Container
-    static KafkaContainer broker = new KafkaContainer(DockerImageName
-        .parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
-        .withNetworkAliases("broker")
-        .withKraft();
+  @Container
+  static KafkaContainer broker =
+      new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:" +
+                                               CONFLUENT_PLATFORM_VERSION))
+          .withNetworkAliases("broker")
+          .withKraft();
 
-    @BeforeAll
-    static void globalSetUp() {
-        createTopics(broker.getBootstrapServers(),
-            "INPUT_TOPIC", "OUTPUT_TOPIC");
-    }
+  @BeforeAll
+  static void globalSetUp() {
+    createTopics(broker.getBootstrapServers(), "INPUT_TOPIC", "OUTPUT_TOPIC");
+  }
 
-    @Test
-    void shouldInitAndRun() throws InterruptedException, IOException {
-        initializer = new KafkaStreamInitializerStub(broker.getBootstrapServers());
-        initializer.init(new KafkaStreamsStarterStub());
+  @Test
+  void shouldInitAndRun() throws InterruptedException, IOException {
+    initializer = new KafkaStreamInitializerStub(broker.getBootstrapServers());
+    initializer.init(new KafkaStreamsStarterStub());
 
-        waitingForKafkaStreamsToRun();
+    waitingForKafkaStreamsToRun();
 
-        assertEquals(KafkaStreams.State.RUNNING, initializer.getKafkaStreams().state());
+    assertEquals(KafkaStreams.State.RUNNING,
+                 initializer.getKafkaStreams().state());
 
-        List<StreamsMetadata> streamsMetadata =
-            new ArrayList<>(initializer.getKafkaStreams().metadataForAllStreamsClients());
+    List<StreamsMetadata> streamsMetadata = new ArrayList<>(
+        initializer.getKafkaStreams().metadataForAllStreamsClients());
 
-        // Assert Kafka Streams initialization
-        assertEquals("localhost", streamsMetadata.get(0).hostInfo().host());
-        assertEquals(8080, streamsMetadata.get(0).hostInfo().port());
-        assertTrue(streamsMetadata.get(0).stateStoreNames().isEmpty());
+    // Assert Kafka Streams initialization
+    assertEquals("localhost", streamsMetadata.get(0).hostInfo().host());
+    assertEquals(8080, streamsMetadata.get(0).hostInfo().port());
+    assertTrue(streamsMetadata.get(0).stateStoreNames().isEmpty());
 
-        List<TopicPartition> topicPartitions = streamsMetadata.get(0).topicPartitions().stream().toList();
+    List<TopicPartition> topicPartitions =
+        streamsMetadata.get(0).topicPartitions().stream().toList();
 
-        assertEquals("INPUT_TOPIC", topicPartitions.get(0).topic());
-        assertEquals(0, topicPartitions.get(0).partition());
+    assertEquals("INPUT_TOPIC", topicPartitions.get(0).topic());
+    assertEquals(0, topicPartitions.get(0).partition());
 
-        assertEquals("DLQ_TOPIC", KafkaStreamsExecutionContext.getDlqTopicName());
-        assertEquals("org.apache.kafka.common.serialization.Serdes$StringSerde",
-            KafkaStreamsExecutionContext.getSerdeConfig().get("default.key.serde"));
-        assertEquals("org.apache.kafka.common.serialization.Serdes$StringSerde",
-            KafkaStreamsExecutionContext.getSerdeConfig().get("default.value.serde"));
+    assertEquals("DLQ_TOPIC", KafkaStreamsExecutionContext.getDlqTopicName());
+    assertEquals(
+        "org.apache.kafka.common.serialization.Serdes$StringSerde",
+        KafkaStreamsExecutionContext.getSerdeConfig().get("default.key.serde"));
+    assertEquals("org.apache.kafka.common.serialization.Serdes$StringSerde",
+                 KafkaStreamsExecutionContext.getSerdeConfig().get(
+                     "default.value.serde"));
 
-        assertEquals("localhost:8080",
-            KafkaStreamsExecutionContext.getProperties().get("application.server"));
+    assertEquals(
+        "localhost:8080",
+        KafkaStreamsExecutionContext.getProperties().get("application.server"));
 
-        // Assert HTTP probes
-        HttpRequest requestReady = HttpRequest.newBuilder()
+    // Assert HTTP probes
+    HttpRequest requestReady =
+        HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:8080/ready"))
             .GET()
             .build();
 
-        HttpResponse<Void> responseReady = httpClient.send(requestReady, HttpResponse.BodyHandlers.discarding());
+    HttpResponse<Void> responseReady =
+        httpClient.send(requestReady, HttpResponse.BodyHandlers.discarding());
 
-        assertEquals(200, responseReady.statusCode());
+    assertEquals(200, responseReady.statusCode());
 
-        HttpRequest requestLiveness = HttpRequest.newBuilder()
+    HttpRequest requestLiveness =
+        HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:8080/liveness"))
             .GET()
             .build();
 
-        HttpResponse<Void> responseLiveness = httpClient.send(requestLiveness, HttpResponse.BodyHandlers.discarding());
+    HttpResponse<Void> responseLiveness = httpClient.send(
+        requestLiveness, HttpResponse.BodyHandlers.discarding());
 
-        assertEquals(200, responseLiveness.statusCode());
+    assertEquals(200, responseLiveness.statusCode());
 
-        HttpRequest requestTopology = HttpRequest.newBuilder()
+    HttpRequest requestTopology =
+        HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:8080/topology"))
             .GET()
             .build();
 
-        HttpResponse<String> responseTopology = httpClient.send(requestTopology, HttpResponse.BodyHandlers.ofString());
+    HttpResponse<String> responseTopology =
+        httpClient.send(requestTopology, HttpResponse.BodyHandlers.ofString());
 
-        assertEquals(200, responseTopology.statusCode());
+    assertEquals(200, responseTopology.statusCode());
         assertEquals("""
             Topologies:
                Sub-topology: 0
@@ -105,25 +116,23 @@ class KafkaStreamsInitializerIntegrationTest extends KafkaIntegrationTest {
                   <-- KSTREAM-SOURCE-0000000000
 
             """, responseTopology.body());
+  }
+
+  @Slf4j
+  static class KafkaStreamsStarterStub extends KafkaStreamsStarter {
+    @Override
+    public void topology(StreamsBuilder streamsBuilder) {
+      streamsBuilder.stream("INPUT_TOPIC").to("OUTPUT_TOPIC");
     }
 
-    @Slf4j
-    static class KafkaStreamsStarterStub extends KafkaStreamsStarter {
-        @Override
-        public void topology(StreamsBuilder streamsBuilder) {
-            streamsBuilder
-                .stream("INPUT_TOPIC")
-                .to("OUTPUT_TOPIC");
-        }
-
-        @Override
-        public String dlqTopic() {
-            return "DLQ_TOPIC";
-        }
-
-        @Override
-        public void onStart(KafkaStreams kafkaStreams) {
-            log.info("Starting Kafka Streams from integration tests!");
-        }
+    @Override
+    public String dlqTopic() {
+      return "DLQ_TOPIC";
     }
+
+    @Override
+    public void onStart(KafkaStreams kafkaStreams) {
+      log.info("Starting Kafka Streams from integration tests!");
+    }
+  }
 }

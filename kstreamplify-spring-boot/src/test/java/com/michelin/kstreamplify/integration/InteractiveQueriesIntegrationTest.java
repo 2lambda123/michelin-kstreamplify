@@ -52,171 +52,205 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers
 @SpringBootTest(webEnvironment = DEFINED_PORT)
 class InteractiveQueriesIntegrationTest extends KafkaIntegrationTest {
-    @Container
-    static KafkaContainer broker = new KafkaContainer(DockerImageName
-        .parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
-        .withNetwork(NETWORK)
-        .withNetworkAliases("broker")
-        .withKraft();
+  @Container
+  static KafkaContainer broker =
+      new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:" +
+                                               CONFLUENT_PLATFORM_VERSION))
+          .withNetwork(NETWORK)
+          .withNetworkAliases("broker")
+          .withKraft();
 
-    @DynamicPropertySource
-    static void kafkaProperties(DynamicPropertyRegistry registry) {
-        registry.add("kafka.properties." + BOOTSTRAP_SERVERS_CONFIG,
-            broker::getBootstrapServers);
+  @DynamicPropertySource
+  static void kafkaProperties(DynamicPropertyRegistry registry) {
+    registry.add("kafka.properties." + BOOTSTRAP_SERVERS_CONFIG,
+                 broker::getBootstrapServers);
+  }
+
+  @Container
+  static GenericContainer<?> schemaRegistry =
+      new GenericContainer<>(
+          DockerImageName.parse("confluentinc/cp-schema-registry:" +
+                                CONFLUENT_PLATFORM_VERSION))
+          .dependsOn(broker)
+          .withNetwork(NETWORK)
+          .withNetworkAliases("schema-registry")
+          .withExposedPorts(8081)
+          .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
+          .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
+          .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS",
+                   "PLAINTEXT://broker:9092")
+          .waitingFor(Wait.forHttp("/subjects").forStatusCode(200));
+
+  @BeforeAll
+  static void globalSetUp() {
+    createTopics(broker.getBootstrapServers(), "STRING_TOPIC", "JAVA_TOPIC",
+                 "AVRO_TOPIC");
+  }
+
+  @BeforeEach
+  void setUp() throws InterruptedException {
+    waitingForKafkaStreamsToStart();
+  }
+
+  @Test
+  void shouldGetStoresAndHosts() {
+    // Get stores
+    ResponseEntity<List<String>> stores =
+        restTemplate.exchange("http://localhost:8085/store", GET, null,
+                              new ParameterizedTypeReference<>() {});
+
+    assertEquals(200, stores.getStatusCode().value());
+    assertNotNull(stores.getBody());
+    assertTrue(stores.getBody().containsAll(
+        List.of("STRING_STORE", "JAVA_STORE", "AVRO_STORE")));
+
+    // Get hosts
+    ResponseEntity<List<HostInfoResponse>> hosts =
+        restTemplate.exchange("http://localhost:8085/store/STRING_STORE/info",
+                              GET, null, new ParameterizedTypeReference<>() {});
+
+    assertEquals(200, hosts.getStatusCode().value());
+    assertNotNull(hosts.getBody());
+    assertEquals("localhost", hosts.getBody().get(0).host());
+    assertEquals(8085, hosts.getBody().get(0).port());
+  }
+
+  @Test
+  void shouldGetByKey() throws InterruptedException {
+    try (KafkaProducer<String, String> stringKafkaProducer =
+             new KafkaProducer<>(Map.of(
+                 BOOTSTRAP_SERVERS_CONFIG, broker.getBootstrapServers(),
+                 KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName(),
+                 VALUE_SERIALIZER_CLASS_CONFIG,
+                 StringSerializer.class.getName()))) {
+      stringKafkaProducer.send(
+          new ProducerRecord<>("STRING_TOPIC", "key", "value"));
     }
 
-    @Container
-    static GenericContainer<?> schemaRegistry = new GenericContainer<>(DockerImageName
-        .parse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION))
-        .dependsOn(broker)
-        .withNetwork(NETWORK)
-        .withNetworkAliases("schema-registry")
-        .withExposedPorts(8081)
-        .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
-        .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
-        .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://broker:9092")
-        .waitingFor(Wait.forHttp("/subjects").forStatusCode(200));
-
-    @BeforeAll
-    static void globalSetUp() {
-        createTopics(broker.getBootstrapServers(),
-            "STRING_TOPIC", "JAVA_TOPIC", "AVRO_TOPIC");
+    try (KafkaProducer<String, KafkaPersonStub> avroKafkaProducer =
+             new KafkaProducer<>(
+                 Map.of(BOOTSTRAP_SERVERS_CONFIG, broker.getBootstrapServers(),
+                        KEY_SERIALIZER_CLASS_CONFIG,
+                        KafkaAvroSerializer.class.getName(),
+                        VALUE_SERIALIZER_CLASS_CONFIG,
+                        KafkaAvroSerializer.class.getName(),
+                        SCHEMA_REGISTRY_URL_CONFIG,
+                        "http://" + schemaRegistry.getHost() + ":" +
+                            schemaRegistry.getFirstMappedPort()))) {
+      avroKafkaProducer.send(new ProducerRecord<>(
+          "AVRO_TOPIC", "person1",
+          KafkaPersonStub.newBuilder()
+              .setId(1L)
+              .setFirstName("John")
+              .setLastName("Doe")
+              .setNationality(CountryCode.FR)
+              .setBirthDate(Instant.parse("2000-01-01T01:00:00.00Z"))
+              .build()));
     }
 
-    @BeforeEach
-    void setUp() throws InterruptedException {
-        waitingForKafkaStreamsToStart();
+    // Wrong keystore
+    ResponseEntity<String> wrongStore = restTemplate.getForEntity(
+        "http://localhost:8085/store/WRONG_STORE/key", String.class);
+
+    assertEquals(404, wrongStore.getStatusCode().value());
+    assertEquals("State store WRONG_STORE not found", wrongStore.getBody());
+
+    // Wrong key
+    ResponseEntity<String> wrongKey = restTemplate.getForEntity(
+        "http://localhost:8085/store/STRING_STORE/wrongKey", String.class);
+
+    assertEquals(404, wrongKey.getStatusCode().value());
+    assertEquals("Key wrongKey not found", wrongKey.getBody());
+
+    // Get by key
+    waitForStoreToCatchKey("STRING_STORE", "key");
+
+    ResponseEntity<QueryResponse> recordByKey = restTemplate.getForEntity(
+        "http://localhost:8085/store/STRING_STORE/key", QueryResponse.class);
+
+    assertEquals(200, recordByKey.getStatusCode().value());
+    assertNotNull(recordByKey.getBody());
+    assertEquals("value", recordByKey.getBody().getValue());
+
+    // Get by key with metadata
+    ResponseEntity<QueryResponse> recordByKeyWithMetadata =
+        restTemplate.getForEntity("http://localhost:8085/store/STRING_STORE/" +
+                                  "key?includeKey=true&includeMetadata=true",
+                                  QueryResponse.class);
+
+    assertEquals(200, recordByKeyWithMetadata.getStatusCode().value());
+    assertNotNull(recordByKeyWithMetadata.getBody());
+    assertEquals("key", recordByKeyWithMetadata.getBody().getKey());
+    assertEquals("value", recordByKeyWithMetadata.getBody().getValue());
+    assertNotNull(recordByKeyWithMetadata.getBody().getTimestamp());
+    assertEquals("localhost",
+                 recordByKeyWithMetadata.getBody().getHostInfo().host());
+    assertEquals(8085, recordByKeyWithMetadata.getBody().getHostInfo().port());
+    assertEquals(
+        "STRING_TOPIC",
+        recordByKeyWithMetadata.getBody().getPositionVectors().get(0).topic());
+    assertEquals(0, recordByKeyWithMetadata.getBody()
+                        .getPositionVectors()
+                        .get(0)
+                        .partition());
+    assertEquals(
+        0,
+        recordByKeyWithMetadata.getBody().getPositionVectors().get(0).offset());
+  }
+
+  private void waitForStoreToCatchKey(String storeName, String key)
+      throws InterruptedException {
+    final ReadOnlyKeyValueStore<String, String> store =
+        initializer.getKafkaStreams().store(
+            StoreQueryParameters.fromNameAndType(
+                storeName, QueryableStoreTypes.keyValueStore()));
+
+    while (store.get(key) == null) {
+      log.info("Waiting for store {} to catch key {}", storeName, key);
+      Thread.sleep(2000);
+    }
+  }
+
+  /**
+   * Kafka Streams starter implementation for integration tests.
+   * The topology consumes events from multiple topics (string, Java, Avro) and
+   * stores them in dedicated stores so that they can be queried.
+   */
+  @Slf4j
+  @SpringBootApplication
+  static class KafkaStreamsStarterStub extends KafkaStreamsStarter {
+    public static void main(String[] args) {
+      SpringApplication.run(KafkaStreamsStarterStub.class, args);
     }
 
-    @Test
-    void shouldGetStoresAndHosts() {
-        // Get stores
-        ResponseEntity<List<String>> stores = restTemplate
-            .exchange("http://localhost:8085/store", GET, null, new ParameterizedTypeReference<>() {
-            });
+    @Override
+    public void topology(StreamsBuilder streamsBuilder) {
+      streamsBuilder.table(
+          "STRING_TOPIC",
+          Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as(
+              "STRING_STORE"));
 
-        assertEquals(200, stores.getStatusCode().value());
-        assertNotNull(stores.getBody());
-        assertTrue(stores.getBody().containsAll(List.of("STRING_STORE", "JAVA_STORE", "AVRO_STORE")));
+      streamsBuilder.table(
+          "JAVA_TOPIC",
+          Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as(
+              "JAVA_STORE"));
 
-        // Get hosts
-        ResponseEntity<List<HostInfoResponse>> hosts = restTemplate
-            .exchange("http://localhost:8085/store/STRING_STORE/info", GET, null, new ParameterizedTypeReference<>() {
-            });
-
-        assertEquals(200, hosts.getStatusCode().value());
-        assertNotNull(hosts.getBody());
-        assertEquals("localhost", hosts.getBody().get(0).host());
-        assertEquals(8085, hosts.getBody().get(0).port());
+      streamsBuilder.table(
+          "AVRO_TOPIC",
+          Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as(
+              "AVRO_STORE"));
     }
 
-    @Test
-    void shouldGetByKey() throws InterruptedException {
-        try (KafkaProducer<String, String> stringKafkaProducer = new KafkaProducer<>(
-            Map.of(BOOTSTRAP_SERVERS_CONFIG, broker.getBootstrapServers(),
-                KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName(),
-                VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName()))) {
-            stringKafkaProducer.send(new ProducerRecord<>("STRING_TOPIC", "key", "value"));
-        }
-
-        try (KafkaProducer<String, KafkaPersonStub> avroKafkaProducer = new KafkaProducer<>(
-            Map.of(BOOTSTRAP_SERVERS_CONFIG, broker.getBootstrapServers(),
-                KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName(),
-                VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName(),
-                SCHEMA_REGISTRY_URL_CONFIG, "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getFirstMappedPort()))) {
-            avroKafkaProducer.send(new ProducerRecord<>("AVRO_TOPIC", "person1", KafkaPersonStub.newBuilder()
-                .setId(1L)
-                .setFirstName("John")
-                .setLastName("Doe")
-                .setNationality(CountryCode.FR)
-                .setBirthDate(Instant.parse("2000-01-01T01:00:00.00Z"))
-                .build()));
-        }
-
-        // Wrong keystore
-        ResponseEntity<String> wrongStore = restTemplate
-            .getForEntity("http://localhost:8085/store/WRONG_STORE/key", String.class);
-
-        assertEquals(404, wrongStore.getStatusCode().value());
-        assertEquals("State store WRONG_STORE not found", wrongStore.getBody());
-
-        // Wrong key
-        ResponseEntity<String> wrongKey = restTemplate
-            .getForEntity("http://localhost:8085/store/STRING_STORE/wrongKey", String.class);
-
-        assertEquals(404, wrongKey.getStatusCode().value());
-        assertEquals("Key wrongKey not found", wrongKey.getBody());
-
-        // Get by key
-        waitForStoreToCatchKey("STRING_STORE", "key");
-
-        ResponseEntity<QueryResponse> recordByKey = restTemplate
-            .getForEntity("http://localhost:8085/store/STRING_STORE/key", QueryResponse.class);
-
-        assertEquals(200, recordByKey.getStatusCode().value());
-        assertNotNull(recordByKey.getBody());
-        assertEquals("value", recordByKey.getBody().getValue());
-
-        // Get by key with metadata
-        ResponseEntity<QueryResponse> recordByKeyWithMetadata = restTemplate
-            .getForEntity("http://localhost:8085/store/STRING_STORE/key?includeKey=true&includeMetadata=true", QueryResponse.class);
-
-        assertEquals(200, recordByKeyWithMetadata.getStatusCode().value());
-        assertNotNull(recordByKeyWithMetadata.getBody());
-        assertEquals("key", recordByKeyWithMetadata.getBody().getKey());
-        assertEquals("value", recordByKeyWithMetadata.getBody().getValue());
-        assertNotNull(recordByKeyWithMetadata.getBody().getTimestamp());
-        assertEquals("localhost", recordByKeyWithMetadata.getBody().getHostInfo().host());
-        assertEquals(8085, recordByKeyWithMetadata.getBody().getHostInfo().port());
-        assertEquals("STRING_TOPIC", recordByKeyWithMetadata.getBody().getPositionVectors().get(0).topic());
-        assertEquals(0, recordByKeyWithMetadata.getBody().getPositionVectors().get(0).partition());
-        assertEquals(0, recordByKeyWithMetadata.getBody().getPositionVectors().get(0).offset());
+    @Override
+    public String dlqTopic() {
+      return "DLQ_TOPIC";
     }
 
-    private void waitForStoreToCatchKey(String storeName, String key) throws InterruptedException {
-        final ReadOnlyKeyValueStore<String, String> store = initializer.getKafkaStreams().store(
-            StoreQueryParameters.fromNameAndType(storeName, QueryableStoreTypes.keyValueStore()));
-
-        while (store.get(key) == null) {
-            log.info("Waiting for store {} to catch key {}", storeName, key);
-            Thread.sleep(2000);
-        }
+    @Override
+    public void onStart(KafkaStreams kafkaStreams) {
+      kafkaStreams.cleanUp();
     }
+  }
 
-    /**
-     * Kafka Streams starter implementation for integration tests.
-     * The topology consumes events from multiple topics (string, Java, Avro) and stores them in dedicated stores
-     * so that they can be queried.
-     */
-    @Slf4j
-    @SpringBootApplication
-    static class KafkaStreamsStarterStub extends KafkaStreamsStarter {
-        public static void main(String[] args) {
-            SpringApplication.run(KafkaStreamsStarterStub.class, args);
-        }
-
-        @Override
-        public void topology(StreamsBuilder streamsBuilder) {
-            streamsBuilder
-                .table("STRING_TOPIC", Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("STRING_STORE"));
-
-            streamsBuilder
-                .table("JAVA_TOPIC", Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("JAVA_STORE"));
-
-            streamsBuilder
-                .table("AVRO_TOPIC", Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("AVRO_STORE"));
-        }
-
-        @Override
-        public String dlqTopic() {
-            return "DLQ_TOPIC";
-        }
-
-        @Override
-        public void onStart(KafkaStreams kafkaStreams) {
-            kafkaStreams.cleanUp();
-        }
-    }
-
-    record PersonStub(String firstName, String lastName) { }
+  record PersonStub(String firstName, String lastName) {}
 }

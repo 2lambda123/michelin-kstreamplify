@@ -10,40 +10,40 @@ import org.junit.jupiter.api.Test;
 
 class TopicWithSerdeTest {
 
-    @Test
-    void shouldCreateTopicWithSerde() {
-        KafkaStreamsExecutionContext.registerProperties(new Properties());
+  @Test
+  void shouldCreateTopicWithSerde() {
+    KafkaStreamsExecutionContext.registerProperties(new Properties());
 
-        TopicWithSerde<String, String> topicWithSerde = new TopicWithSerde<>("INPUT_TOPIC",
-            Serdes.String(), Serdes.String());
+    TopicWithSerde<String, String> topicWithSerde =
+        new TopicWithSerde<>("INPUT_TOPIC", Serdes.String(), Serdes.String());
 
-        assertEquals("INPUT_TOPIC", topicWithSerde.getUnPrefixedName());
-        assertEquals("INPUT_TOPIC", topicWithSerde.toString());
-    }
+    assertEquals("INPUT_TOPIC", topicWithSerde.getUnPrefixedName());
+    assertEquals("INPUT_TOPIC", topicWithSerde.toString());
+  }
 
-    @Test
-    void shouldCreateTopicWithSerdeWithPrefix() {
-        Properties properties = new Properties();
-        properties.put("prefix.self", "abc.");
+  @Test
+  void shouldCreateTopicWithSerdeWithPrefix() {
+    Properties properties = new Properties();
+    properties.put("prefix.self", "abc.");
 
-        KafkaStreamsExecutionContext.registerProperties(properties);
+    KafkaStreamsExecutionContext.registerProperties(properties);
 
-        TopicWithSerde<String, String> topicWithSerde = new TopicWithSerde<>("INPUT_TOPIC",
-            Serdes.String(), Serdes.String());
+    TopicWithSerde<String, String> topicWithSerde =
+        new TopicWithSerde<>("INPUT_TOPIC", Serdes.String(), Serdes.String());
 
-        assertEquals("INPUT_TOPIC", topicWithSerde.getUnPrefixedName());
-        assertEquals("abc.INPUT_TOPIC", topicWithSerde.toString());
-    }
+    assertEquals("INPUT_TOPIC", topicWithSerde.getUnPrefixedName());
+    assertEquals("abc.INPUT_TOPIC", topicWithSerde.toString());
+  }
 
-    @Test
-    void shouldCreateStream() {
-        KafkaStreamsExecutionContext.registerProperties(new Properties());
+  @Test
+  void shouldCreateStream() {
+    KafkaStreamsExecutionContext.registerProperties(new Properties());
 
-        TopicWithSerde<String, String> topicWithSerde = new TopicWithSerde<>("INPUT_TOPIC",
-            Serdes.String(), Serdes.String());
+    TopicWithSerde<String, String> topicWithSerde =
+        new TopicWithSerde<>("INPUT_TOPIC", Serdes.String(), Serdes.String());
 
-        StreamsBuilder streamsBuilder = new StreamsBuilder();
-        topicWithSerde.stream(streamsBuilder);
+    StreamsBuilder streamsBuilder = new StreamsBuilder();
+    topicWithSerde.stream(streamsBuilder);
 
         assertEquals("""
             Topologies:
@@ -52,17 +52,17 @@ class TopicWithSerdeTest {
                   --> none
 
             """, streamsBuilder.build().describe().toString());
-    }
+  }
 
-    @Test
-    void shouldCreateTable() {
-        KafkaStreamsExecutionContext.registerProperties(new Properties());
+  @Test
+  void shouldCreateTable() {
+    KafkaStreamsExecutionContext.registerProperties(new Properties());
 
-        TopicWithSerde<String, String> topicWithSerde = new TopicWithSerde<>("INPUT_TOPIC",
-            Serdes.String(), Serdes.String());
+    TopicWithSerde<String, String> topicWithSerde =
+        new TopicWithSerde<>("INPUT_TOPIC", Serdes.String(), Serdes.String());
 
-        StreamsBuilder streamsBuilder = new StreamsBuilder();
-        topicWithSerde.table(streamsBuilder, "myStore");
+    StreamsBuilder streamsBuilder = new StreamsBuilder();
+    topicWithSerde.table(streamsBuilder, "myStore");
 
         assertEquals("""
             Topologies:
@@ -74,17 +74,17 @@ class TopicWithSerdeTest {
                   <-- KSTREAM-SOURCE-0000000000
 
                   """, streamsBuilder.build().describe().toString());
-    }
+  }
 
-    @Test
-    void shouldCreateGlobalKtable() {
-        KafkaStreamsExecutionContext.registerProperties(new Properties());
+  @Test
+  void shouldCreateGlobalKtable() {
+    KafkaStreamsExecutionContext.registerProperties(new Properties());
 
-        TopicWithSerde<String, String> topicWithSerde = new TopicWithSerde<>("INPUT_TOPIC",
-            Serdes.String(), Serdes.String());
+    TopicWithSerde<String, String> topicWithSerde =
+        new TopicWithSerde<>("INPUT_TOPIC", Serdes.String(), Serdes.String());
 
-        StreamsBuilder streamsBuilder = new StreamsBuilder();
-        topicWithSerde.globalTable(streamsBuilder, "myStore");
+    StreamsBuilder streamsBuilder = new StreamsBuilder();
+    topicWithSerde.globalTable(streamsBuilder, "myStore");
 
         assertEquals("""
             Topologies:
@@ -95,5 +95,5 @@ class TopicWithSerdeTest {
                   --> none
                   <-- KSTREAM-SOURCE-0000000000
             """, streamsBuilder.build().describe().toString());
-    }
+  }
 }

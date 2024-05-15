@@ -21,62 +21,63 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 @ExtendWith(MockitoExtension.class)
 class SpringBootKafkaStreamsInitializerTest {
-    @Mock
-    private ConfigurableApplicationContext applicationContext;
+  @Mock private ConfigurableApplicationContext applicationContext;
 
-    @Mock
-    private KafkaStreamsStarter kafkaStreamsStarter;
+  @Mock private KafkaStreamsStarter kafkaStreamsStarter;
 
-    @Mock
-    private KafkaProperties kafkaProperties;
+  @Mock private KafkaProperties kafkaProperties;
 
-    @InjectMocks
-    private SpringBootKafkaStreamsInitializer initializer;
+  @InjectMocks private SpringBootKafkaStreamsInitializer initializer;
 
-    @Test
-    void shouldInitProperties() {
-        Properties properties = new Properties();
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "appId");
-        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        properties.put("prefix.self", "abc.");
+  @Test
+  void shouldInitProperties() {
+    Properties properties = new Properties();
+    properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "appId");
+    properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+    properties.put("prefix.self", "abc.");
 
-        when(kafkaProperties.asProperties()).thenReturn(properties);
+    when(kafkaProperties.asProperties()).thenReturn(properties);
 
-        initializer.initProperties();
+    initializer.initProperties();
 
-        assertEquals(kafkaStreamsStarter, initializer.getKafkaStreamsStarter());
-        assertNotNull(initializer.getKafkaProperties());
-        assertEquals("abc.", KafkaStreamsExecutionContext.getPrefix());
-        assertEquals("abc.appId", KafkaStreamsExecutionContext.getProperties()
-            .get(StreamsConfig.APPLICATION_ID_CONFIG));
-    }
+    assertEquals(kafkaStreamsStarter, initializer.getKafkaStreamsStarter());
+    assertNotNull(initializer.getKafkaProperties());
+    assertEquals("abc.", KafkaStreamsExecutionContext.getPrefix());
+    assertEquals("abc.appId", KafkaStreamsExecutionContext.getProperties().get(
+                                  StreamsConfig.APPLICATION_ID_CONFIG));
+  }
 
-    @Test
-    void shouldCloseSpringBootContextOnUncaughtException() {
-        Properties properties = new Properties();
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "appId");
-        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        properties.put("prefix.self", "abc.");
+  @Test
+  void shouldCloseSpringBootContextOnUncaughtException() {
+    Properties properties = new Properties();
+    properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "appId");
+    properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+    properties.put("prefix.self", "abc.");
 
-        when(kafkaProperties.asProperties()).thenReturn(properties);
+    when(kafkaProperties.asProperties()).thenReturn(properties);
 
-        initializer.initProperties();
-        StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse response = initializer
-            .onStreamsUncaughtException(new RuntimeException("Unexpected test exception"));
+    initializer.initProperties();
+    StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse response =
+        initializer.onStreamsUncaughtException(
+            new RuntimeException("Unexpected test exception"));
 
-        assertEquals(StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.SHUTDOWN_CLIENT, response);
-        verify(applicationContext).close();
-    }
+    assertEquals(StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse
+                     .SHUTDOWN_CLIENT,
+                 response);
+    verify(applicationContext).close();
+  }
 
-    @Test
-    void shouldCloseSpringBootContextOnChangeState() {
-        initializer.onStateChange(KafkaStreams.State.ERROR, KafkaStreams.State.RUNNING);
-        verify(applicationContext).close();
-    }
+  @Test
+  void shouldCloseSpringBootContextOnChangeState() {
+    initializer.onStateChange(KafkaStreams.State.ERROR,
+                              KafkaStreams.State.RUNNING);
+    verify(applicationContext).close();
+  }
 
-    @Test
-    void shouldNotCloseSpringBootContextOnChangeStateNotError() {
-        initializer.onStateChange(KafkaStreams.State.REBALANCING, KafkaStreams.State.RUNNING);
-        verify(applicationContext, never()).close();
-    }
+  @Test
+  void shouldNotCloseSpringBootContextOnChangeStateNotError() {
+    initializer.onStateChange(KafkaStreams.State.REBALANCING,
+                              KafkaStreams.State.RUNNING);
+    verify(applicationContext, never()).close();
+  }
 }

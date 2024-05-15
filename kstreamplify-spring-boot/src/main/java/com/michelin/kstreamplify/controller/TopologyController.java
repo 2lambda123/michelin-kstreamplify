@@ -15,22 +15,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @ConditionalOnBean(KafkaStreamsStarter.class)
 public class TopologyController {
-    /**
-     * The topology service.
-     */
-    @Autowired
-    private TopologyService topologyService;
+  /**
+   * The topology service.
+   */
+  @Autowired private TopologyService topologyService;
 
-    /**
-     * Get the Kafka Streams topology.
-     *
-     * @return The Kafka Streams topology
-     */
-    @GetMapping("/${topology.path:topology}")
-    public ResponseEntity<String> topology() {
-        RestResponse<String> response = topologyService.getTopology();
-        return ResponseEntity
-            .status(response.status())
-            .body(response.body());
-    }
+  /**
+   * Get the Kafka Streams topology.
+   *
+   * @return The Kafka Streams topology
+   */
+  @GetMapping("/${topology.path:topology}")
+  public ResponseEntity<String> topology() {
+    RestResponse<String> response = topologyService.getTopology();
+    return ResponseEntity.status(response.status()).body(response.body());
+  }
 }

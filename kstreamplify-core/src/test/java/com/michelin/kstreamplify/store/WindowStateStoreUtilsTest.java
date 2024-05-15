@@ -19,35 +19,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class WindowStateStoreUtilsTest {
-    @Mock
-    private WindowStore<String, String> windowStore;
+  @Mock private WindowStore<String, String> windowStore;
 
-    @Mock
-    private WindowStoreIterator<String> iterator;
+  @Mock private WindowStoreIterator<String> iterator;
 
-    @Test
-    void shouldPutAndGetFromWindowStore() {
-        String value = "testValue";
+  @Test
+  void shouldPutAndGetFromWindowStore() {
+    String value = "testValue";
 
-        when(iterator.hasNext())
-            .thenReturn(true)
-            .thenReturn(false);
+    when(iterator.hasNext()).thenReturn(true).thenReturn(false);
 
-        when(iterator.next())
-            .thenReturn(KeyValue.pair(1L, value));
+    when(iterator.next()).thenReturn(KeyValue.pair(1L, value));
 
-        when(windowStore.backwardFetch(anyString(), any(), any()))
-            .thenReturn(iterator);
+    when(windowStore.backwardFetch(anyString(), any(), any()))
+        .thenReturn(iterator);
 
-        // Call the put method
-        String key = "testKey";
-        WindowStateStoreUtils.put(windowStore, key, value);
-        String result = WindowStateStoreUtils.get(windowStore, key, 1);
-        String nullResult = WindowStateStoreUtils.get(windowStore, "nothing", 1);
+    // Call the put method
+    String key = "testKey";
+    WindowStateStoreUtils.put(windowStore, key, value);
+    String result = WindowStateStoreUtils.get(windowStore, key, 1);
+    String nullResult = WindowStateStoreUtils.get(windowStore, "nothing", 1);
 
-        // Verify that the put method of the windowStore is called with the correct arguments
-        assertEquals("testValue", result);
-        assertNull(nullResult);
-        verify(windowStore).put(eq(key), eq(value), anyLong());
-    }
+    // Verify that the put method of the windowStore is called with the correct
+    // arguments
+    assertEquals("testValue", result);
+    assertNull(nullResult);
+    verify(windowStore).put(eq(key), eq(value), anyLong());
+  }
 }

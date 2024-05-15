@@ -7,12 +7,13 @@ import com.michelin.kstreamplify.initializer.KafkaStreamsInitializer;
 import org.junit.jupiter.api.Test;
 
 class KafkaStreamsHttpServerTest {
-    @Test
-    void shouldCreateServerWithDefaultHostAndPort() {
-        KafkaStreamsHttpServer server = new KafkaStreamsHttpServer(new KafkaStreamsInitializer());
-        server.start();
+  @Test
+  void shouldCreateServerWithDefaultHostAndPort() {
+    KafkaStreamsHttpServer server =
+        new KafkaStreamsHttpServer(new KafkaStreamsInitializer());
+    server.start();
 
-        assertNotNull(server.server.getAddress().getHostName());
-        assertNotEquals(0, server.server.getAddress().getPort());
-    }
+    assertNotNull(server.server.getAddress().getHostName());
+    assertNotEquals(0, server.server.getAddress().getPort());
+  }
 }

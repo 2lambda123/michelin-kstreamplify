@@ -15,29 +15,27 @@ import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 class KubernetesControllerTest {
-    @Mock
-    private KubernetesService kubernetesService;
+  @Mock private KubernetesService kubernetesService;
 
-    @InjectMocks
-    private KubernetesController kubernetesController;
+  @InjectMocks private KubernetesController kubernetesController;
 
-    @Test
-    void shouldGetReadinessProbe() {
-        when(kubernetesService.getReadiness())
-            .thenReturn(new RestResponse<>(200, null));
+  @Test
+  void shouldGetReadinessProbe() {
+    when(kubernetesService.getReadiness())
+        .thenReturn(new RestResponse<>(200, null));
 
-        ResponseEntity<Void> response = kubernetesController.readiness();
+    ResponseEntity<Void> response = kubernetesController.readiness();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+  }
 
-    @Test
-    void shouldGetLivenessProbe() {
-        when(kubernetesService.getLiveness())
-            .thenReturn(new RestResponse<>(200, null));
+  @Test
+  void shouldGetLivenessProbe() {
+    when(kubernetesService.getLiveness())
+        .thenReturn(new RestResponse<>(200, null));
 
-        ResponseEntity<Void> response = kubernetesController.liveness();
+    ResponseEntity<Void> response = kubernetesController.liveness();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+  }
 }

@@ -15,36 +15,39 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConditionalOnBean(KafkaStreamsStarter.class)
 public class BeanConfig {
-    /**
-     * Register the Kubernetes service as a bean.
-     *
-     * @param initializer The Kafka Streams initializer
-     * @return The Kubernetes service
-     */
-    @Bean
-    KubernetesService kubernetesService(SpringBootKafkaStreamsInitializer initializer) {
-        return new KubernetesService(initializer);
-    }
+  /**
+   * Register the Kubernetes service as a bean.
+   *
+   * @param initializer The Kafka Streams initializer
+   * @return The Kubernetes service
+   */
+  @Bean
+  KubernetesService
+  kubernetesService(SpringBootKafkaStreamsInitializer initializer) {
+    return new KubernetesService(initializer);
+  }
 
-    /**
-     * Register the Topology service as a bean.
-     *
-     * @param initializer The Kafka Streams initializer
-     * @return The Topology service
-     */
-    @Bean
-    TopologyService topologyService(SpringBootKafkaStreamsInitializer initializer) {
-        return new TopologyService(initializer);
-    }
+  /**
+   * Register the Topology service as a bean.
+   *
+   * @param initializer The Kafka Streams initializer
+   * @return The Topology service
+   */
+  @Bean
+  TopologyService
+  topologyService(SpringBootKafkaStreamsInitializer initializer) {
+    return new TopologyService(initializer);
+  }
 
-    /**
-     * Register the Store service as a bean.
-     *
-     * @param initializer The Kafka Streams initializer
-     * @return The Store service
-     */
-    @Bean
-    InteractiveQueriesService interactiveQueriesService(SpringBootKafkaStreamsInitializer initializer) {
-        return new InteractiveQueriesService(initializer);
-    }
+  /**
+   * Register the Store service as a bean.
+   *
+   * @param initializer The Kafka Streams initializer
+   * @return The Store service
+   */
+  @Bean
+  InteractiveQueriesService
+  interactiveQueriesService(SpringBootKafkaStreamsInitializer initializer) {
+    return new InteractiveQueriesService(initializer);
+  }
 }

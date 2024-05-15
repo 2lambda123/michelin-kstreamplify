@@ -7,17 +7,18 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.junit.jupiter.api.Test;
 
 class KafkaPropertiesTest {
-    private final KafkaProperties kafkaProperties = new KafkaProperties();
+  private final KafkaProperties kafkaProperties = new KafkaProperties();
 
-    @Test
-    void shouldLoadProperties() {
-        Map<String, String> props = Map.of(StreamsConfig.APPLICATION_ID_CONFIG, "appId");
+  @Test
+  void shouldLoadProperties() {
+    Map<String, String> props =
+        Map.of(StreamsConfig.APPLICATION_ID_CONFIG, "appId");
 
-        kafkaProperties.setProperties(props);
+    kafkaProperties.setProperties(props);
 
-        assertTrue(kafkaProperties.getProperties().containsKey("application.id"));
-        assertTrue(kafkaProperties.getProperties().containsValue("appId"));
-        assertTrue(kafkaProperties.asProperties().containsKey("application.id"));
-        assertTrue(kafkaProperties.asProperties().containsValue("appId"));
-    }
+    assertTrue(kafkaProperties.getProperties().containsKey("application.id"));
+    assertTrue(kafkaProperties.getProperties().containsValue("appId"));
+    assertTrue(kafkaProperties.asProperties().containsKey("application.id"));
+    assertTrue(kafkaProperties.asProperties().containsValue("appId"));
+  }
 }

@@ -15,20 +15,18 @@ import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 class TopologyControllerTest {
-    @Mock
-    private TopologyService topologyService;
+  @Mock private TopologyService topologyService;
 
-    @InjectMocks
-    private TopologyController topologyController;
+  @InjectMocks private TopologyController topologyController;
 
-    @Test
-    void shouldGetTopology() {
-        when(topologyService.getTopology())
-            .thenReturn(new RestResponse<>(200, "Topology"));
+  @Test
+  void shouldGetTopology() {
+    when(topologyService.getTopology())
+        .thenReturn(new RestResponse<>(200, "Topology"));
 
-        ResponseEntity<String> response = topologyController.topology();
+    ResponseEntity<String> response = topologyController.topology();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Topology", response.getBody());
-    }
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertEquals("Topology", response.getBody());
+  }
 }

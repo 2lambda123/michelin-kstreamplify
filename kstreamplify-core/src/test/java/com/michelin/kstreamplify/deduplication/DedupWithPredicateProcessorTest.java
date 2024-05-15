@@ -26,81 +26,87 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class DedupWithPredicateProcessorTest {
-    private DedupWithPredicateProcessor<String, KafkaError> processor;
+  private DedupWithPredicateProcessor<String, KafkaError> processor;
 
-    @Mock
-    private ProcessorContext<String, ProcessingResult<KafkaError, KafkaError>> context;
+  @Mock
+  private ProcessorContext<String, ProcessingResult<KafkaError, KafkaError>>
+      context;
 
-    @Mock
-    private WindowStore<String, KafkaError> windowStore;
+  @Mock private WindowStore<String, KafkaError> windowStore;
 
-    @Mock
-    private WindowStoreIterator<KafkaError> windowStoreIterator;
+  @Mock private WindowStoreIterator<KafkaError> windowStoreIterator;
 
-    @BeforeEach
-    void setUp() {
-        // Create an instance of DedupWithPredicateProcessor for testing
-        processor = new DedupWithPredicateProcessor<>("testStore", Duration.ofHours(1), KeyExtractorStub::extract);
+  @BeforeEach
+  void setUp() {
+    // Create an instance of DedupWithPredicateProcessor for testing
+    processor = new DedupWithPredicateProcessor<>(
+        "testStore", Duration.ofHours(1), KeyExtractorStub::extract);
 
-        // Stub the context.getStateStore method to return the mock store
-        when(context.getStateStore("testStore")).thenReturn(windowStore);
+    // Stub the context.getStateStore method to return the mock store
+    when(context.getStateStore("testStore")).thenReturn(windowStore);
 
-        processor.init(context);
-    }
+    processor.init(context);
+  }
 
-    @Test
-    void shouldProcessNewRecord() {
-        final KafkaError kafkaError = new KafkaError();
-        final Record<String, KafkaError> record = new Record<>("key", kafkaError, 0);
+  @Test
+  void shouldProcessNewRecord() {
+    final KafkaError kafkaError = new KafkaError();
+    final Record<String, KafkaError> record =
+        new Record<>("key", kafkaError, 0);
 
-        processor.process(record);
+    processor.process(record);
 
-        verify(windowStore).put("", record.value(), record.timestamp());
-        verify(context).forward(argThat(arg -> arg.value().getValue().equals(record.value())));
+    verify(windowStore).put("", record.value(), record.timestamp());
+    verify(context).forward(
+        argThat(arg -> arg.value().getValue().equals(record.value())));
+  }
 
-    }
+  @Test
+  void shouldProcessDuplicate() {
+    final KafkaError kafkaError = new KafkaError();
+    final Record<String, KafkaError> record =
+        new Record<>("key", kafkaError, 0L);
 
-    @Test
-    void shouldProcessDuplicate() {
-        final KafkaError kafkaError = new KafkaError();
-        final Record<String, KafkaError> record = new Record<>("key", kafkaError, 0L);
+    // Simulate hasNext() returning true once and then false
+    when(windowStoreIterator.hasNext()).thenReturn(true);
 
-        // Simulate hasNext() returning true once and then false
-        when(windowStoreIterator.hasNext()).thenReturn(true);
+    // Simulate the condition to trigger the return statement
+    when(windowStoreIterator.next()).thenReturn(KeyValue.pair(0L, kafkaError));
 
-        // Simulate the condition to trigger the return statement
-        when(windowStoreIterator.next()).thenReturn(KeyValue.pair(0L, kafkaError));
+    // Simulate the backwardFetch() method returning the mocked ResultIterator
+    when(windowStore.backwardFetch(any(), any(), any()))
+        .thenReturn(windowStoreIterator);
 
-        // Simulate the backwardFetch() method returning the mocked ResultIterator
-        when(windowStore.backwardFetch(any(), any(), any())).thenReturn(windowStoreIterator);
+    // Call the process method
+    processor.process(record);
 
-        // Call the process method
-        processor.process(record);
+    verify(windowStore, never()).put(anyString(), any(), anyLong());
+    verify(context, never()).forward(any());
+  }
 
-        verify(windowStore, never()).put(anyString(), any(), anyLong());
-        verify(context, never()).forward(any());
-    }
+  @Test
+  void shouldThrowException() {
+    Record<String, KafkaError> record =
+        new Record<>("key", new KafkaError(), 0L);
 
-    @Test
-    void shouldThrowException() {
-        Record<String, KafkaError> record = new Record<>("key", new KafkaError(), 0L);
+    when(windowStore.backwardFetch(any(), any(), any()))
+        .thenReturn(null)
+        .thenThrow(new RuntimeException("Exception..."));
+    doThrow(new RuntimeException("Exception..."))
+        .when(windowStore)
+        .put(anyString(), any(), anyLong());
 
-        when(windowStore.backwardFetch(any(), any(), any())).thenReturn(null)
-            .thenThrow(new RuntimeException("Exception..."));
-        doThrow(new RuntimeException("Exception...")).when(windowStore).put(anyString(), any(), anyLong());
+    // Call the process method
+    processor.process(record);
 
-        // Call the process method
-        processor.process(record);
+    verify(context).forward(argThat(
+        arg
+        -> arg.value().getError().getContextMessage().equals(
+            "Could not figure out what to do with the current payload: "
+            + "An unlikely error occurred during deduplication transform")));
+  }
 
-        verify(context).forward(argThat(arg -> arg.value().getError().getContextMessage()
-            .equals("Could not figure out what to do with the current payload: "
-                + "An unlikely error occurred during deduplication transform")));
-    }
-
-    static class KeyExtractorStub {
-        public static <V extends SpecificRecord> String extract(V v) {
-            return "";
-        }
-    }
+  static class KeyExtractorStub {
+    public static <V extends SpecificRecord> String extract(V v) { return ""; }
+  }
 }
-

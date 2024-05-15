@@ -6,5 +6,4 @@ package com.michelin.kstreamplify.model;
  * @param host The host
  * @param port The port
  */
-public record HostInfoResponse(String host, Integer port) {
-}
+public record HostInfoResponse(String host, Integer port) {}

@@ -8,28 +8,28 @@ import org.junit.jupiter.api.Test;
 
 class TopicUtilsTest {
 
-    @Test
-    void shouldRemapTopic() {
-        Properties properties = new Properties();
-        properties.put("topic.remap.myTopic", "myRemappedTopic");
+  @Test
+  void shouldRemapTopic() {
+    Properties properties = new Properties();
+    properties.put("topic.remap.myTopic", "myRemappedTopic");
 
-        KafkaStreamsExecutionContext.setProperties(properties);
+    KafkaStreamsExecutionContext.setProperties(properties);
 
-        String remappedTopic = TopicUtils.remapAndPrefix("myTopic", "");
+    String remappedTopic = TopicUtils.remapAndPrefix("myTopic", "");
 
-        assertEquals("myRemappedTopic", remappedTopic);
-    }
+    assertEquals("myRemappedTopic", remappedTopic);
+  }
 
-    @Test
-    void shouldRemapAndPrefixTopic() {
-        Properties properties = new Properties();
-        properties.put("topic.remap.myTopic", "myRemappedTopic");
-        properties.put("prefix.myNamespace", "myNamespacePrefix.");
+  @Test
+  void shouldRemapAndPrefixTopic() {
+    Properties properties = new Properties();
+    properties.put("topic.remap.myTopic", "myRemappedTopic");
+    properties.put("prefix.myNamespace", "myNamespacePrefix.");
 
-        KafkaStreamsExecutionContext.setProperties(properties);
+    KafkaStreamsExecutionContext.setProperties(properties);
 
-        String remappedTopic = TopicUtils.remapAndPrefix("myTopic", "myNamespace");
+    String remappedTopic = TopicUtils.remapAndPrefix("myTopic", "myNamespace");
 
-        assertEquals("myNamespacePrefix.myRemappedTopic", remappedTopic);
-    }
+    assertEquals("myNamespacePrefix.myRemappedTopic", remappedTopic);
+  }
 }

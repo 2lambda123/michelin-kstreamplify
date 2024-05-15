@@ -46,167 +46,176 @@ import org.apache.avro.util.Utf8;
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class AvroToJsonConverter {
-    private static final Gson gson = new GsonBuilder()
-        .registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-        .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeTypeAdapter())
-        .registerTypeAdapter(LocalTime.class, new LocalTimeTypeAdapter())
-        .setPrettyPrinting()
-        .create();
+  private static final Gson gson =
+      new GsonBuilder()
+          .registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+          .registerTypeAdapter(LocalDateTime.class,
+                               new LocalDateTimeTypeAdapter())
+          .registerTypeAdapter(LocalTime.class, new LocalTimeTypeAdapter())
+          .setPrettyPrinting()
+          .create();
 
-    /**
-     * Convert the value to JSON.
-     *
-     * @param value The value
-     * @return The JSON
-     */
-    public static String convertObject(Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        if (value instanceof GenericRecord genericRecord) {
-            return convertRecord(genericRecord);
-        }
-
-        return gson.toJson(value);
+  /**
+   * Convert the value to JSON.
+   *
+   * @param value The value
+   * @return The JSON
+   */
+  public static String convertObject(Object value) {
+    if (value == null) {
+      return null;
     }
 
-    /**
-     * Convert the values to JSON.
-     *
-     * @param values The values
-     * @return The JSON
-     */
-    public static String convertObject(List<Object> values) {
-        return values.stream()
-            .map(AvroToJsonConverter::convertObject)
-            .toList()
-            .toString();
+    if (value instanceof GenericRecord genericRecord) {
+      return convertRecord(genericRecord);
     }
 
-    /**
-     * Convert the record from avro format to json format.
-     *
-     * @param inputRecord the record in avro format
-     * @return the record in json format
-     */
-    public static String convertRecord(GenericRecord inputRecord) {
-        return gson.toJson(recordAsMap(inputRecord));
+    return gson.toJson(value);
+  }
+
+  /**
+   * Convert the values to JSON.
+   *
+   * @param values The values
+   * @return The JSON
+   */
+  public static String convertObject(List<Object> values) {
+    return values.stream()
+        .map(AvroToJsonConverter::convertObject)
+        .toList()
+        .toString();
+  }
+
+  /**
+   * Convert the record from avro format to json format.
+   *
+   * @param inputRecord the record in avro format
+   * @return the record in json format
+   */
+  public static String convertRecord(GenericRecord inputRecord) {
+    return gson.toJson(recordAsMap(inputRecord));
+  }
+
+  /**
+   * Convert avro to a map for json format.
+   *
+   * @param inputRecord record in avro
+   * @return map for json format
+   */
+  private static Map<String, Object> recordAsMap(GenericRecord inputRecord) {
+    Map<String, Object> recordMapping = new HashMap<>();
+
+    for (Field field : inputRecord.getSchema().getFields()) {
+      Object recordValue = inputRecord.get(field.name());
+
+      if ((recordValue instanceof Utf8 || recordValue instanceof Instant)) {
+        recordValue = recordValue.toString();
+      }
+
+      if (recordValue instanceof List<?> recordValueAsList) {
+        recordValue = recordValueAsList.stream()
+                          .map(value -> {
+                            if (value instanceof GenericRecord genericRecord) {
+                              return recordAsMap(genericRecord);
+                            } else {
+                              return value.toString();
+                            }
+                          })
+                          .toList();
+      }
+
+      if (recordValue instanceof Map<?, ?> recordValueAsMap) {
+        Map<Object, Object> jsonMap = new HashMap<>();
+        recordValueAsMap.forEach((key, value) -> {
+          if (value instanceof GenericRecord genericRecord) {
+            jsonMap.put(key, recordAsMap(genericRecord));
+          } else {
+            jsonMap.put(key, value.toString());
+          }
+        });
+
+        recordValue = jsonMap;
+      }
+
+      if (recordValue instanceof GenericRecord genericRecord) {
+        recordValue = recordAsMap(genericRecord);
+      }
+
+      recordMapping.put(field.name(), recordValue);
     }
 
-    /**
-     * Convert avro to a map for json format.
-     *
-     * @param inputRecord record in avro
-     * @return map for json format
-     */
-    private static Map<String, Object> recordAsMap(GenericRecord inputRecord) {
-        Map<String, Object> recordMapping = new HashMap<>();
+    return recordMapping;
+  }
 
-        for (Field field : inputRecord.getSchema().getFields()) {
-            Object recordValue = inputRecord.get(field.name());
+  private static class LocalDateTypeAdapter
+      implements JsonSerializer<LocalDate>, JsonDeserializer<LocalDate> {
 
-            if ((recordValue instanceof Utf8 || recordValue instanceof Instant)) {
-                recordValue = recordValue.toString();
-            }
+    private final DateTimeFormatter formatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-            if (recordValue instanceof List<?> recordValueAsList) {
-                recordValue = recordValueAsList
-                    .stream()
-                    .map(value -> {
-                        if (value instanceof GenericRecord genericRecord) {
-                            return recordAsMap(genericRecord);
-                        } else {
-                            return value.toString();
-                        }
-                    })
-                    .toList();
-            }
-
-            if (recordValue instanceof Map<?, ?> recordValueAsMap) {
-                Map<Object, Object> jsonMap = new HashMap<>();
-                recordValueAsMap.forEach((key, value) -> {
-                    if (value instanceof GenericRecord genericRecord) {
-                        jsonMap.put(key, recordAsMap(genericRecord));
-                    } else {
-                        jsonMap.put(key, value.toString());
-                    }
-                });
-
-                recordValue = jsonMap;
-            }
-
-            if (recordValue instanceof GenericRecord genericRecord) {
-                recordValue = recordAsMap(genericRecord);
-            }
-
-            recordMapping.put(field.name(), recordValue);
-        }
-
-        return recordMapping;
+    @Override
+    public JsonElement serialize(final LocalDate date, final Type typeOfSrc,
+                                 final JsonSerializationContext context) {
+      return new JsonPrimitive(date.format(formatter));
     }
 
-    private static class LocalDateTypeAdapter implements JsonSerializer<LocalDate>, JsonDeserializer<LocalDate> {
+    @Override
+    public LocalDate deserialize(JsonElement json, Type typeOfT,
+                                 JsonDeserializationContext context)
+        throws JsonParseException {
+      return LocalDate.parse(json.getAsString(), formatter);
+    }
+  }
 
-        private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+  private static class LocalDateTimeTypeAdapter
+      implements JsonSerializer<LocalDateTime>,
+                 JsonDeserializer<LocalDateTime> {
 
-        @Override
-        public JsonElement serialize(final LocalDate date, final Type typeOfSrc,
-                                     final JsonSerializationContext context) {
-            return new JsonPrimitive(date.format(formatter));
-        }
+    private static final DateTimeFormatter formatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+    private static final DateTimeFormatter formatterNano =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS");
 
-        @Override
-        public LocalDate deserialize(JsonElement json, Type typeOfT,
-                                     JsonDeserializationContext context) throws JsonParseException {
-            return LocalDate.parse(json.getAsString(), formatter);
-        }
+    @Override
+    public JsonElement serialize(LocalDateTime localDateTime, Type srcType,
+                                 JsonSerializationContext context) {
+      if (localDateTime.toString().length() == 29) {
+        return new JsonPrimitive(formatterNano.format(localDateTime));
+      }
+      return new JsonPrimitive(formatter.format(localDateTime));
     }
 
-    private static class LocalDateTimeTypeAdapter implements JsonSerializer<LocalDateTime>,
-        JsonDeserializer<LocalDateTime> {
+    @Override
+    public LocalDateTime deserialize(JsonElement json, Type typeOfT,
+                                     JsonDeserializationContext context)
+        throws JsonParseException {
+      return LocalDateTime.parse(json.getAsString(), formatter);
+    }
+  }
 
-        private static final DateTimeFormatter formatter =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
-        private static final DateTimeFormatter formatterNano =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS");
+  private static class LocalTimeTypeAdapter
+      implements JsonSerializer<LocalTime>, JsonDeserializer<LocalTime> {
 
-        @Override
-        public JsonElement serialize(LocalDateTime localDateTime, Type srcType,
-                                     JsonSerializationContext context) {
-            if (localDateTime.toString().length() == 29) {
-                return new JsonPrimitive(formatterNano.format(localDateTime));
-            }
-            return new JsonPrimitive(formatter.format(localDateTime));
-        }
+    private static final DateTimeFormatter formatter =
+        DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+    private static final DateTimeFormatter formatterNano =
+        DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
-        @Override
-        public LocalDateTime deserialize(JsonElement json, Type typeOfT,
-                                         JsonDeserializationContext context) throws JsonParseException {
-            return LocalDateTime.parse(json.getAsString(), formatter);
-        }
+    @Override
+    public JsonElement serialize(LocalTime localTime, Type srcType,
+                                 JsonSerializationContext context) {
+      if (localTime.toString().length() == 15) {
+        return new JsonPrimitive(formatterNano.format(localTime));
+      }
+      return new JsonPrimitive(formatter.format(localTime));
     }
 
-    private static class LocalTimeTypeAdapter implements JsonSerializer<LocalTime>, JsonDeserializer<LocalTime> {
+    @Override
+    public LocalTime deserialize(JsonElement json, Type typeOfT,
+                                 JsonDeserializationContext context)
+        throws JsonParseException {
 
-        private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
-        private static final DateTimeFormatter formatterNano = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
-
-        @Override
-        public JsonElement serialize(LocalTime localTime, Type srcType,
-                                     JsonSerializationContext context) {
-            if (localTime.toString().length() == 15) {
-                return new JsonPrimitive(formatterNano.format(localTime));
-            }
-            return new JsonPrimitive(formatter.format(localTime));
-        }
-
-        @Override
-        public LocalTime deserialize(JsonElement json, Type typeOfT,
-                                     JsonDeserializationContext context) throws JsonParseException {
-
-            return LocalTime.parse(json.getAsString(), formatter);
-        }
+      return LocalTime.parse(json.getAsString(), formatter);
     }
-
+  }
 }

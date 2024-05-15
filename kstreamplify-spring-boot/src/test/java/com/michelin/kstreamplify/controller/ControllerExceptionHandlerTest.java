@@ -8,25 +8,28 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
 class ControllerExceptionHandlerTest {
-    private final ControllerExceptionHandler controllerExceptionHandler = new ControllerExceptionHandler();
+  private final ControllerExceptionHandler controllerExceptionHandler =
+      new ControllerExceptionHandler();
 
-    @Test
-    void shouldHandleUnknownStateStoreException() {
-        UnknownStateStoreException e = new UnknownStateStoreException("message");
+  @Test
+  void shouldHandleUnknownStateStoreException() {
+    UnknownStateStoreException e = new UnknownStateStoreException("message");
 
-        ResponseEntity<String> response = controllerExceptionHandler.handleUnknownStateStoreException(e);
+    ResponseEntity<String> response =
+        controllerExceptionHandler.handleUnknownStateStoreException(e);
 
-        assertEquals("message", response.getBody());
-        assertEquals(404, response.getStatusCode().value());
-    }
+    assertEquals("message", response.getBody());
+    assertEquals(404, response.getStatusCode().value());
+  }
 
-    @Test
-    void shouldHandleStreamsNotStartedException() {
-        StreamsNotStartedException e = new StreamsNotStartedException("message");
+  @Test
+  void shouldHandleStreamsNotStartedException() {
+    StreamsNotStartedException e = new StreamsNotStartedException("message");
 
-        ResponseEntity<String> response = controllerExceptionHandler.handleStreamsNotStartedException(e);
+    ResponseEntity<String> response =
+        controllerExceptionHandler.handleStreamsNotStartedException(e);
 
-        assertEquals("message", response.getBody());
-        assertEquals(503, response.getStatusCode().value());
-    }
+    assertEquals("message", response.getBody());
+    assertEquals(503, response.getStatusCode().value());
+  }
 }

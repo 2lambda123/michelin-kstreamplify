@@ -16,84 +16,91 @@ import org.apache.kafka.streams.errors.ProductionExceptionHandler;
  */
 @Slf4j
 @NoArgsConstructor
-public class DlqProductionExceptionHandler extends DlqExceptionHandler implements ProductionExceptionHandler {
-    private static final Object GUARD = new Object();
+public class DlqProductionExceptionHandler
+    extends DlqExceptionHandler implements ProductionExceptionHandler {
+  private static final Object GUARD = new Object();
 
-    /**
-     * Constructor.
-     *
-     * @param producer A Kafka producer
-     */
-    public DlqProductionExceptionHandler(Producer<byte[], KafkaError> producer) {
-        DlqExceptionHandler.producer = producer;
+  /**
+   * Constructor.
+   *
+   * @param producer A Kafka producer
+   */
+  public DlqProductionExceptionHandler(Producer<byte[], KafkaError> producer) {
+    DlqExceptionHandler.producer = producer;
+  }
+
+  /**
+   * Manage production exceptions.
+   *
+   * @param producerRecord      the record to produce
+   * @param productionException the exception on producing
+   * @return FAIL or CONTINUE
+   */
+  @Override
+  public ProductionExceptionHandlerResponse
+  handle(ProducerRecord<byte[], byte[]> producerRecord,
+         Exception productionException) {
+    if (StringUtils.isBlank(KafkaStreamsExecutionContext.getDlqTopicName())) {
+      log.warn("Failed to route production error to the designated DLQ (Dead " +
+               "Letter Queue) topic. "
+               + "Please make sure to define a DLQ topic in your " +
+                 "KafkaStreamsStarter bean configuration.");
+      return ProductionExceptionHandlerResponse.FAIL;
     }
 
-    /**
-     * Manage production exceptions.
-     *
-     * @param producerRecord      the record to produce
-     * @param productionException the exception on producing
-     * @return FAIL or CONTINUE
-     */
-    @Override
-    public ProductionExceptionHandlerResponse handle(ProducerRecord<byte[], byte[]> producerRecord,
-                                                     Exception productionException) {
-        if (StringUtils.isBlank(KafkaStreamsExecutionContext.getDlqTopicName())) {
-            log.warn(
-                "Failed to route production error to the designated DLQ (Dead Letter Queue) topic. "
-                    +
-                    "Please make sure to define a DLQ topic in your KafkaStreamsStarter bean configuration.");
-            return ProductionExceptionHandlerResponse.FAIL;
-        }
+    boolean retryable = productionException instanceof RetriableException;
 
-        boolean retryable = productionException instanceof RetriableException;
+    if (!retryable) {
+      try {
+        var builder = KafkaError.newBuilder();
+        enrichWithException(builder, productionException, producerRecord.key(),
+                            producerRecord.value())
+            .setContextMessage(
+                "An exception occurred during the stream internal production")
+            .setOffset(-1)
+            .setPartition(producerRecord.partition() == null
+                              ? -1
+                              : producerRecord.partition())
+            .setTopic(producerRecord.topic());
 
-        if (!retryable) {
-            try {
-                var builder = KafkaError.newBuilder();
-                enrichWithException(builder, productionException, producerRecord.key(),
-                    producerRecord.value())
-                    .setContextMessage(
-                        "An exception occurred during the stream internal production")
-                    .setOffset(-1)
-                    .setPartition(
-                        producerRecord.partition() == null ? -1 : producerRecord.partition())
-                    .setTopic(producerRecord.topic());
+        producer
+            .send(new ProducerRecord<>(
+                KafkaStreamsExecutionContext.getDlqTopicName(),
+                producerRecord.key(), builder.build()))
+            .get();
+      } catch (InterruptedException ie) {
+        log.error("Interruption while sending the production exception {} " +
+                  "for key {}, value {} "
+                      + "and topic {} to DLQ topic {}",
+                  productionException, producerRecord.key(),
+                  producerRecord.value(), producerRecord.topic(),
+                  KafkaStreamsExecutionContext.getDlqTopicName(), ie);
+        Thread.currentThread().interrupt();
+      } catch (Exception e) {
+        log.error("Cannot send the production exception {} for key {}, value " +
+                  "{} and topic {} to DLQ topic {}",
+                  productionException, producerRecord.key(),
+                  producerRecord.value(), producerRecord.topic(),
+                  KafkaStreamsExecutionContext.getDlqTopicName(), e);
+        return ProductionExceptionHandlerResponse.CONTINUE;
+      }
 
-                producer.send(new ProducerRecord<>(KafkaStreamsExecutionContext.getDlqTopicName(),
-                    producerRecord.key(), builder.build())).get();
-            } catch (InterruptedException ie) {
-                log.error(
-                    "Interruption while sending the production exception {} for key {}, value {} "
-                        + "and topic {} to DLQ topic {}",
-                    productionException,
-                    producerRecord.key(), producerRecord.value(), producerRecord.topic(),
-                    KafkaStreamsExecutionContext.getDlqTopicName(), ie);
-                Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                log.error(
-                    "Cannot send the production exception {} for key {}, value {} and topic {} to DLQ topic {}",
-                    productionException,
-                    producerRecord.key(), producerRecord.value(), producerRecord.topic(),
-                    KafkaStreamsExecutionContext.getDlqTopicName(), e);
-                return ProductionExceptionHandlerResponse.CONTINUE;
-            }
-
-            return ProductionExceptionHandlerResponse.CONTINUE;
-        }
-
-        return ProductionExceptionHandlerResponse.FAIL;
+      return ProductionExceptionHandlerResponse.CONTINUE;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void configure(Map<String, ?> configs) {
-        synchronized (GUARD) {
-            if (producer == null) {
-                instantiateProducer(DlqProductionExceptionHandler.class.getName(), configs);
-            }
-        }
+    return ProductionExceptionHandlerResponse.FAIL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void configure(Map<String, ?> configs) {
+    synchronized (GUARD) {
+      if (producer == null) {
+        instantiateProducer(DlqProductionExceptionHandler.class.getName(),
+                            configs);
+      }
     }
+  }
 }

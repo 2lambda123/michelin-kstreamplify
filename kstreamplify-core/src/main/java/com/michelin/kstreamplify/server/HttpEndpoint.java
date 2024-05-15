@@ -11,6 +11,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 class HttpEndpoint {
-    private String path;
-    private Supplier<RestResponse<?>> restService;
+  private String path;
+  private Supplier<RestResponse<?>> restService;
 }
