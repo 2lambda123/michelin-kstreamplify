@@ -23,42 +23,42 @@ need to do:
 
 ## Table of Contents
 
-* [Overview](#overview)
-* [Dependencies](#dependencies)
-    * [Java](#java)
-    * [Spring Boot](#spring-boot)
-    * [Unit Test](#unit-test)
-* [Features](#features)
-  * [Bootstrapping](#bootstrapping)
-    * [Create your first Kstreamplify application](#create-your-first-kstreamplify-application) 
-    * [Properties Injection](#properties-injection)
-  * [Avro Serializer and Deserializer](#avro-serializer-and-deserializer)
-  * [Error Handling](#error-handling)
-    * [Topology](#topology)
-    * [Production and Deserialization](#production-and-deserialization)
-    * [Avro Schema](#avro-schema)
-    * [Uncaught Exception Handler](#uncaught-exception-handler)
-  * [Kubernetes](#kubernetes)
-  * [Hooks](#hooks)
-    * [On Start](#on-start)
-  * [Interactive Queries](#interactive-queries)
-    * [Application Server Configuration](#application-server-configuration)
-  * [Topology](#topology-2)
-  * [Deduplication](#deduplication)
-    * [By Key](#by-key)
-    * [By Key and Value](#by-key-and-value)
-    * [By Predicate](#by-predicate)
-  * [Open Telemetry](#open-telemetry)
-  * [Testing](#testing)
-* [Motivation](#motivation)
-* [Contribution](#contribution)
+- [Overview](#overview)
+- [Dependencies](#dependencies)
+  - [Java](#java)
+  - [Spring Boot](#spring-boot)
+  - [Unit Test](#unit-test)
+- [Features](#features)
+  - [Bootstrapping](#bootstrapping)
+    - [Create your first Kstreamplify application](#create-your-first-kstreamplify-application)
+    - [Properties Injection](#properties-injection)
+  - [Avro Serializer and Deserializer](#avro-serializer-and-deserializer)
+  - [Error Handling](#error-handling)
+    - [Topology](#topology)
+    - [Production and Deserialization](#production-and-deserialization)
+    - [Avro Schema](#avro-schema)
+    - [Uncaught Exception Handler](#uncaught-exception-handler)
+  - [Kubernetes](#kubernetes)
+  - [Hooks](#hooks)
+    - [On Start](#on-start)
+  - [Interactive Queries](#interactive-queries)
+    - [Application Server Configuration](#application-server-configuration)
+  - [Topology](#topology-2)
+  - [Deduplication](#deduplication)
+    - [By Key](#by-key)
+    - [By Key and Value](#by-key-and-value)
+    - [By Predicate](#by-predicate)
+  - [Open Telemetry](#open-telemetry)
+  - [Testing](#testing)
+- [Motivation](#motivation)
+- [Contribution](#contribution)
 
 ## Overview
 
 Wondering what makes Kstreamplify stand out? Here are some of the key features that make it a must-have for Kafka Streams:
 
 - **🚀 Bootstrapping**: Automatic startup, configuration, and initialization of Kafka Streams is handled for you. Focus on
-business implementation rather than the setup.
+  business implementation rather than the setup.
 
 - **📝 Avro Serializer and Deserializer**: Common serializers and deserializers for Avro.
 
@@ -295,7 +295,7 @@ available [here](https://github.com/michelin/kstreamplify/blob/main/kstreamplify
 
 Kstreamplify defines a default uncaught exception handler that catches all uncaught exceptions and shuts down the client.
 
-If you want to override this behavior, you can override the `KafkaStreamsStarter#uncaughtExceptionHandler()` method and return your own 
+If you want to override this behavior, you can override the `KafkaStreamsStarter#uncaughtExceptionHandler()` method and return your own
 uncaught exception handler.
 
 ```java
@@ -439,7 +439,7 @@ The given predicate will be used as a key in the window store. The stream will b
 
 ### Open Telemetry
 
-The Kstreamplify Spring Boot module simplifies the integration of [Open Telemetry](https://opentelemetry.io/) 
+The Kstreamplify Spring Boot module simplifies the integration of [Open Telemetry](https://opentelemetry.io/)
 and its Java agent in Kafka Streams applications by binding all Kafka Streams metrics to the Spring Boot registry.
 
 You can run your application with the Open Telemetry Java agent by including the following JVM options:
@@ -463,7 +463,7 @@ the logs during the application startup.
 Kstreamplify eases the use of the Topology Test Driver for testing Kafka Streams application.
 
 You can create a test class that extends `KafkaStreamsStarterTest`, override
-the `KafkaStreamsStarterTest#getKafkaStreamsStarter()` to provide your `KafkaStreamsStarter` implementation, 
+the `KafkaStreamsStarterTest#getKafkaStreamsStarter()` to provide your `KafkaStreamsStarter` implementation,
 and start writing your tests.
 
 ```java
